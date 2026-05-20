@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 import sys
+from typing import Optional
 
 from .Configuration import Configuration
 from .CommandLineProcessor import CommandlineProcessor
@@ -15,7 +16,7 @@ from .SemverOutputGenerator import SemverOutputGenerator
 from . import __version__, __commit__
 
 
-def main(argv: list[str]) -> int:
+def main(argv: Optional[list[str]] = sys.argv) -> int:
     config = Configuration()
     cmd_processor = CommandlineProcessor(config, __version__, __commit__)
     cmd_processor.process_command_line(argv)
@@ -38,4 +39,4 @@ def main(argv: list[str]) -> int:
 
 
 if __name__ == '__main__':
-    sys.exit(main(sys.argv))
+    sys.exit(main())

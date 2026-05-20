@@ -31,8 +31,8 @@ Documentation = "https://conventional-semver.readthedocs.io/"
 Homepage = "https://github.com/wilson0x4d/conventional-semver"
 Repository = "https://github.com/wilson0x4d/conventional-semver.git"
 
-[tool.setuptools.data-files]
-bin = [".scripts/conventional-semver"]
+[project.scripts]
+conventional-semver = "conventional_semver.__main__:main"
 
 [tool.setuptools.package-data]
 "py-conventional-semver" = ["py.typed"]
