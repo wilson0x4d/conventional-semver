@@ -37,4 +37,4 @@ class GitLogStream:
             entry_str = entry_bytes.decode('utf-8')
         except UnicodeDecodeError:
             entry_str = entry_bytes.decode('utf-8', errors='replace')
-        return self.__git_entry_parser.parse(entry_str.strip())
+        return self.__git_entry_parser.parse(entry_str)
