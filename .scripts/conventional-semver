@@ -4,4 +4,4 @@
 ##
 from subprocess import run
 from sys import executable, argv
-result = run([executable, "-m", "py_conventional_semver"] + argv[1:], check=False)
+result = run([executable, "-m", "conventional_semver"] + argv[1:], check=False)
