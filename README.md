@@ -1,5 +1,5 @@
 
-**conventional-semver** is a [Conventional Commits](https://www.conventionalcommits.org/) processor written in C++, designed to emit a [SEMVER](https://semver.org) as part of a build pipeline. It runs independent from larger frameworks/toolchains allowing it to be used without requiring additional dependencies to be layered onto a build environment.
+**conventional-semver** is a [Conventional Commits](https://www.conventionalcommits.org/) processor designed to emit a [SEMVER](https://semver.org) as part of a build pipeline.
 
 ## Usage
 
@@ -64,7 +64,7 @@ To customize behavior a configuration file may be created. This file can be pass
 * `~/.config/conventional-semver/settings.conf` (user profile `.config` directory.)
 * `/etc/conventional-semver/settings.conf` (root `/etc` directory.)
 
-The confdiguration file should have the following format:
+The configuration file should have the following format:
 
 ```ini
 # lines starting with hash (#) are comments

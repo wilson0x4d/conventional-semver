@@ -1,0 +1,44 @@
+name: "build"
+on:
+  workflow_dispatch:
+  workflow_call:
+  push:
+    branches:
+      - master
+    paths:
+      - '.gitea/workflows/pipeline.yaml'
+      - '.scripts/conventional-semver'
+      - 'pyproject.toml'
+      - 'src/**'
+jobs:
+  package-and-deploy:
+    name: "Package & Deploy"
+    runs-on: builder-py311
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: "Configure"
+        id: configure-build
+        run: |
+          export SEMVER=$(conventional-semver)
+          echo "REGISTRY_NAMESPACE=wilson0x4d" >> "$GITHUB_ENV"
+          echo "SEMVER=$SEMVER" >> "$GITHUB_ENV"
+          echo "SEMVER=$SEMVER" >> "$GITHUB_OUTPUT"
+          echo "PYPI_REPO=${{ vars.PYPI_REPO }}" >> "$GITHUB_ENV"
+          emit-context "success" "SEMVER" "${{ gitea.api_url }}" "${{ gitea.repository }}" "${{ gitea.sha }}" "${{ secrets.GITEA_TOKEN }}" "$SEMVER"
+          PYTHON_VERSION=3.11 .scripts/init-venv
+      - name: "Test"
+        id: run-tests
+        run: |
+          .scripts/run-tests
+      - name: "Package"
+        id: build-package
+        run: |
+          .scripts/build-package
+      - name: "Deploy"
+        id: deploy-package
+        run: |
+          .scripts/deploy-package
+          git tag "$SEMVER"
+          git push origin "$SEMVER"
