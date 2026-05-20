@@ -55,6 +55,9 @@ class GitAdapter:
         if stderr_bytes:
             os.write(sys.stderr.fileno(), stderr_bytes)
 
+        if proc.returncode != 0:
+            os._exit(proc.returncode)
+
         self.__git_log_stream.write(stdout_bytes, len(stdout_bytes))
 
         entry = self.__git_log_stream.readentry()
@@ -62,6 +65,3 @@ class GitAdapter:
             for generator in self.__output_generators:
                 generator.handle_commit_entry(entry)
             entry = self.__git_log_stream.readentry()
-
-        if proc.returncode != 0:
-            self.__logger.error(f'git process exited with non-zero code {proc.returncode}')
