@@ -1,0 +1,8 @@
+# rtd-specific
+sphinx
+sphinx-autodoc-typehints
+sphinx_rtd_theme
+furo
+
+# from pyproject.toml
+hanaro>=1.0.0
