@@ -1,6 +1,11 @@
 # SPDX-FileCopyrightText: © 2026 Shaun Wilson
-# SPDX-FileCopyrightText: (c) 2024 sw4k 
+# SPDX-CopyrightText: (c) 2024 sw4k
 # SPDX-License-Identifier: MIT
+
+"""Parse raw git-log output into :class:`~conventional_semver.GitEntry` objects.
+
+Splits ``tformat``-encoded git log text on delimiter bytes, extracts hash, refs, subject line, body paragraph, and footer lines delimited by blank lines within the input.
+"""
 
 from __future__ import annotations
 
@@ -8,8 +13,16 @@ from .GitEntry import GitEntry
 
 
 class GitEntryParser:
+    """Parse raw git-log output into :class:`~conventional_semver.GitEntry` objects."""
 
     def parse(self, input_str: str) -> GitEntry:
+        """Parse a block of ``tformat``-encoded git log output.
+
+        Extracts hash, refs (comma-separated), subject line, body paragraph, and footer lines delimited by blank lines within the input.
+
+        :param input_str: Raw git log text with hash, refs, subject, body, and footers.
+        :returns: A populated entry object, or an empty one when *input_str* is falsy.
+        """
         if not input_str:
             return GitEntry()
 

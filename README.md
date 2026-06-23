@@ -13,11 +13,11 @@ Options:
         --verbose           enable verbose (debug) output.
         --commit <hash>     indicates which commit hash to start changelog from.
         --tag <name>        indicates which tag to start changelog from.
-        --changelog <file>  overrides the name of the file the changelog is written to, otherwise 'changelog.md' is the default.
+        --changelog <file>  overrides the name of the file the changelog is written to, otherwise changelog.md is the default.
         --no-semver         disable SEMVER output to STDOUT.
-        --major             SEMVER 'Major' component will start with this value, default is '0'.
-        --minor             SEMVER 'Minor' component will start with this value, default is '0'.
-        --patch             SEMVER 'Patch' component will start with this value, default is '0'.
+        --major             SEMVER Major component will start with this value, default is 0.
+        --minor             SEMVER Minor component will start with this value, default is 0.
+        --patch             SEMVER Patch component will start with this value, default is 0.
         --git-path <path>   overrides the path to `git` tool, otherwise `git` must be in environment PATH.
 
 Parameters:
@@ -31,15 +31,15 @@ When you run **conventional-semver** from within a `git` repository, it will aut
 Example:
 
 ```bash
-% conventional-semver
+$ conventional-semver
 0.1.23
 ```
 
 This allows you to pull a semver into an Environment Variable, evaluate it as an Argument to another tool, or pipe it to a file/stream for additional processing:
 
 ```bash
-% export SEMVER=$(conventional-semver)
-% echo $SEMVER
+$ export SEMVER=$(conventional-semver)
+$ echo $SEMVER
 0.1.23
 ```
 
@@ -50,7 +50,7 @@ Projects adopting Conventional Commits may need to customize the baseline SEMVER
 When run on a repo containing three non-conventional commits:
 
 ```bash
-% conventional-semver --major 1 --minor 2 --patch 3
+$ conventional-semver --major 1 --minor 2 --patch 3
 1.2.6
 ```
 
@@ -101,53 +101,77 @@ To generate a CHANGELOG you specify the `--changelog [filename]` switch, this ta
 Example:
 
 ```bash
-% conventional-semver --changelog
+$ conventional-semver --changelog
+```
+
+```bash
+$ conventional-semver --changelog CHANGELOG.md
 ```
 
 #### CHANGELOG Templates
 
-The CHANGELOG output is controlled through one or more templates. This includes a required "entry" template, and optional "header" and "footer" templates. Combined this is meant to provide enough flexibility that you could emit templates in various structured formats such as XML, JSON, Markdown, etc.
+The CHANGELOG output is defined as a single template, this is meant to provide enough flexibility that you could emit templates in various structured formats such as XML, JSON, Markdown, reStructuredText, etc.
 
-The default templates are meant to produce a generic TEXT file that is markdown-friendly.
+The default template is built-in, and is designed to produce a file that is markdown-friendly.
 
-##### CHANGELOG Entry Template
+To specify a custom template, supply an additional `--changelog-template <template path>` argument that indicates where the template can be found:
 
-For each SEMVER increment a CHANGELOG Entry is emitted.
-
-The format of each CHANGELOG Entry is taken from a file named `changelog-entry.template`, when `--changelog` is specified this file is required to be present or the command will fail.
-
-This is the default content of this template:
-
-```text
-$(DATE) $(SEMVER)-$(HASH)
-$(TYPE)$(SCOPE): $(MESSAGE)
+```bash
+$ conventional-semver --changelog --template ./templates/template_name.j2
 ```
 
-The entry template supports the following expando variables:
+```bash
+$ conventional-semver --changelog ./CHANGELOG.rst --template ./templates/template_name.j2
+```
 
-| Expando | Comment |
-|-|-|
-| $(DATE) | The date of the commit which caused SEMVER increment. This is emitted in the default culture of the current environment. |
-| $(SEMVER) | The calculated SEMVER value. |
-| $(HASH) | The short-form git commit hash. |
-| $(TYPE) | The Conventional Commits `<type>` value. |
-| $(SCOPE) | If any, the Conventional Commits `[scope]` value, including parenthesis. |
-| $(MESSAGE) | The commit message, sans `<type>` and `[scope]`. |
-| $(BODY) | If any, the commit body. |
-| $(TRAILERS) | If any, the commit trailers (footers). |
+##### Jinja2
 
-##### CHANGELOG Header Template
+Templates are Jinja2-based, offering a powerful feature set and a syntax familiar to the Python community.
 
-The header prepended to the CHANGELOG comes from a file named `changelog-header.template`.
+###### Variables
 
-There are no special expando variables supported in the header.
+Templates are provided a data dict having the following structure:
 
-##### CHANGELOG Footer Template
+```json
+{
+    "name": <derived from working directory basename>,
+    "semver": <semver of most recent commit>,
+    "date": <date of most recent commit>,
+    "hash": <git hash of most recent commit>,
+    "versions": [
+        {
+            "semver": <semver of commit>,
+            "commits": [
+                {
+                    "date": <commit date>,
+                    "hash": <commit hash>,
+                    "message": <original commit message>,
+                    "type": <the `type` parsed from commit message>,
+                    "scope": <the `scope` parsed from commit message>,
+                    "header": <the first line parsed from the commit message, sans `type` and `scope`>,
+                    "body": <optional, the `body` lines parsed from the commit message, if defined>,
+                    "footers": <optional, the `trailing` lines parsed from the commit message, if defined>
+                }
+            ]
+        }
+    ]
+}
+```
 
-The footer appended to the CHANGELOG comes from a file named `changelog-footer.template`.
+For each SEMVER increment a `"versions"` entry is provided. A single semver increment may be the result of multiple commits, and so `"commits"` is an array of all commits related to the semver increment.  Typically, this will be a 1-to-1 relationship, but it depends on the practices and patterns of the developer/organization.
 
-There are no special expando variables supported in the footer.
+###### Example
 
-##### CHANGELOG Template Caveats
+The built-in template looks approximately like this:
 
-No escaping is performed on any of the emitted values. Thus, it is possible for commit messages to interact with parsers/renderers in unintended ways. For example if you make a template to emit an HTML changelog, and a commit message contains content which looks like an 'element', it will most likely result in a changelog that doesn't render as expected.
+```jinja2
+        {% for version in versions %}
+        #### {{ version.semver }}
+        {% for commit in version.commits %}
+        - {{ commit.type }}({{ commit.scope }}): {{ commit.header }}{% if commit.body is defined %}
+        {{ commit.body }}
+        {% if commit.footers is defined %}
+        > {{ commit.footers }}{% endif %}{% else %}
+        {% endif %}
+        {%- endfor -%}{%- endfor -%}
+```

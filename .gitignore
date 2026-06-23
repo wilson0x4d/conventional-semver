@@ -15,3 +15,4 @@ tmp/
 .coverage
 *cov/
 *.local.json
+CHANGELOG.*
