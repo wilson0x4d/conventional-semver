@@ -35,14 +35,15 @@ def main(argv: Optional[list[str]] = sys.argv[1:]) -> int:
     cmd_processor.process_command_line(argv)
     config.process_configuration()
 
+    output_generator: OutputGenerator
     output_generators = list[OutputGenerator]()
     if not config.disable_semver_output:
         output_generators.append(SemverOutputGenerator(config))
     if config.changelog_output_file:
-        generator = ChangelogOutputGenerator(config)
+        output_generator = ChangelogOutputGenerator(config)
         if config.changelog_template:
-            generator.set_changelog_template(config.changelog_template)
-        output_generators.append(generator)
+            output_generator.set_changelog_template(config.changelog_template)
+        output_generators.append(output_generator)
 
     git_entry_parser = GitEntryParser()
     git_adapter = GitAdapter(
@@ -53,8 +54,8 @@ def main(argv: Optional[list[str]] = sys.argv[1:]) -> int:
     )
     git_adapter.process_git_log()
 
-    for generator in output_generators:
-        generator.generate_output()
+    for output_generator in output_generators:
+        output_generator.generate_output()
     return 0
 
 

@@ -242,10 +242,11 @@ class CommandlineProcessor:
         # (start with -) pass through unchanged; an empty list or None lets
         # parse_arguments fall back to sys.argv without risking a double-slice that
         # would drop flags like --changelog.
+        stripped: list[str]
         if argv and len(argv) > 1:
             stripped = argv[1:]
         elif argv and len(argv) == 1 and argv[0].startswith(('/', '\\')):
-            stripped: list[str] = []
+            stripped = []
         else:
             stripped = argv if argv is not None else []
         ns = parse_arguments(stripped)
