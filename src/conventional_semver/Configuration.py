@@ -46,6 +46,7 @@ class Configuration:
     start_commit_hash: str
     start_tag: str
     types: list[tuple[re.Pattern, SemverComponentType]]
+    validate_message: bool | str
     repo_path: str
 
     __logger: logging.Logger
@@ -71,6 +72,7 @@ class Configuration:
         self.start_commit_hash = ''
         self.start_tag = ''
         self.types = []
+        self.validate_message = False
         self.repo_path = ''
 
     def set_start_from(self, version: str) -> None:

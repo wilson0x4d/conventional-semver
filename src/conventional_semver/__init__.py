@@ -28,6 +28,7 @@ from .GitLogStream import GitLogStream
 from .OutputGenerator import OutputGenerator
 from .SemverOutputGenerator import SemverOutputGenerator
 from .SemverComponentType import SemverComponentType
+from .Validator import Validator
 
 __version__ = '0.0.0'
 __commit__ = '0abc123'
@@ -44,4 +45,5 @@ __all__ = [
     'OutputGenerator',
     'SemverOutputGenerator',
     'SemverComponentType',
+    'Validator',
 ]

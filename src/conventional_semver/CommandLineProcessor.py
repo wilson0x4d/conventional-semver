@@ -45,6 +45,16 @@ def _create_parser() -> argparse.ArgumentParser:
         help='disable SEMVER output to STDOUT',
     )
 
+    # -- Validation --
+    parser.add_argument(
+        '--validate',
+        nargs='?',
+        const=True,
+        default=False,
+        metavar='MESSAGE',
+        help='validate commit messages against configured patterns (use MESSAGE to validate a specific commit instead of the log)',
+    )
+
     # -- Changelog options --
     # nargs='?' with const means: no value -> 'CHANGELOG.md'; value provided -> that path;
     # absent entirely -> None (changelog disabled).
@@ -228,6 +238,7 @@ def apply_arguments_to_config(ns: argparse.Namespace, config: Configuration) -> 
         config.disable_semver_output = True
     if ns.repo_path:
         config.repo_path = ns.repo_path
+    config.validate_message = ns.validate
 
 
 class CommandlineProcessor:
