@@ -15,7 +15,7 @@ fi
 
 mypy src
 MYPYPATH=src mypy --namespace-packages --explicit-package-bases tests
-PYTHONPATH=src python -m coverage run -m punit --trait '!integration' --trait '!hardcoded' --trait '!longrunning' --trait '!manual' "$@"
+PYTHONPATH=src python -m coverage run -m punit --trait '!integration' --trait '!hardcoded' --trait '!longrunning' --trait '!manual' "$@" --verbose
 coverage report
 
 if [ "$DESTROY_VENV" == "1" ]; then
