@@ -309,3 +309,140 @@ def parse_arguments_preserves_flags_without_argv0() -> None:
 
 # -- help/version flags are tested implicitly by all other tests
 # that successfully invoke parse_arguments() (a broken parser would crash).
+# -- From version flag tests
+
+
+@fact
+def from_version_flag_parses_valid_semver() -> None:
+    """parse_arguments correctly extracts the --from value."""
+    from conventional_semver.CommandLineProcessor import parse_arguments
+
+    ns = parse_arguments(['--from', '1.4.0'])
+    assert ns.from_version == '1.4.0'
+
+
+@fact
+def from_version_applied_to_config() -> None:
+    """--from sets major_start, minor_start, and patch_start on config."""
+    from conventional_semver.CommandLineProcessor import (
+        apply_arguments_to_config,
+        parse_arguments,
+    )
+    from conventional_semver.Configuration import Configuration
+
+    config = Configuration()
+    ns = parse_arguments(['--from', '2.3.4'])
+    apply_arguments_to_config(ns, config)
+    assert config.from_version == '2.3.4'
+    assert config.major_start == 2
+    assert config.minor_start == 3
+    assert config.patch_start == 4
+
+
+@fact
+def from_version_takes_precedence_over_major_minor_patch() -> None:
+    """When --from and --major/--minor/--patch are both given, --from wins."""
+    from conventional_semver.CommandLineProcessor import (
+        apply_arguments_to_config,
+        parse_arguments,
+    )
+    from conventional_semver.Configuration import Configuration
+
+    config = Configuration()
+    # --from 1.2.3 and --major 9 --minor 9 --patch 9
+    ns = parse_arguments(['--from', '1.2.3', '--major', '9', '--minor', '9', '--patch', '9'])
+    apply_arguments_to_config(ns, config)
+    # --from takes precedence
+    assert config.major_start == 1
+    assert config.minor_start == 2
+    assert config.patch_start == 3
+
+
+@fact
+def invalid_from_version_produces_error() -> None:
+    """An invalid --from value raises SystemExit with a clear message."""
+    from conventional_semver.CommandLineProcessor import (
+        apply_arguments_to_config,
+        parse_arguments,
+    )
+    from conventional_semver.Configuration import Configuration
+
+    ns = parse_arguments(['--from', 'invalid'])
+    config = Configuration()
+    try:
+        apply_arguments_to_config(ns, config)
+    except SystemExit as exc:
+        assert 'Invalid semver baseline' in str(exc)
+    else:
+        raise AssertionError('expected SystemExit')
+
+
+@fact
+def from_version_too_few_parts_error() -> None:
+    """--from with only two parts produces a validation error."""
+    from conventional_semver.CommandLineProcessor import (
+        apply_arguments_to_config,
+        parse_arguments,
+    )
+    from conventional_semver.Configuration import Configuration
+
+    ns = parse_arguments(['--from', '1.4'])
+    config = Configuration()
+    try:
+        apply_arguments_to_config(ns, config)
+    except SystemExit:
+        pass
+    else:
+        raise AssertionError('expected SystemExit')
+
+
+@fact
+def from_version_zero_values() -> None:
+    """Zero-valued semver baseline is accepted."""
+    from conventional_semver.CommandLineProcessor import (
+        apply_arguments_to_config,
+        parse_arguments,
+    )
+    from conventional_semver.Configuration import Configuration
+
+    config = Configuration()
+    ns = parse_arguments(['--from', '0.0.0'])
+    apply_arguments_to_config(ns, config)
+    assert config.major_start == 0
+    assert config.minor_start == 0
+    assert config.patch_start == 0
+
+
+@fact
+def whitespace_in_from_version_stripped() -> None:
+    """Whitespace around the version string is trimmed before parsing."""
+    from conventional_semver.CommandLineProcessor import (
+        apply_arguments_to_config,
+        parse_arguments,
+    )
+    from conventional_semver.Configuration import Configuration
+
+    config = Configuration()
+    ns = parse_arguments(['--from', '  1.0.0  '])
+    apply_arguments_to_config(ns, config)
+    assert config.major_start == 1
+    assert config.minor_start == 0
+    assert config.patch_start == 0
+
+
+@fact
+def from_version_none_means_default_separate_flags_used() -> None:
+    """When --from is absent, separate --major/--minor/--patch are applied."""
+    from conventional_semver.CommandLineProcessor import (
+        apply_arguments_to_config,
+        parse_arguments,
+    )
+    from conventional_semver.Configuration import Configuration
+
+    config = Configuration()
+    ns = parse_arguments(['--major', '3', '--minor', '2', '--patch', '1'])
+    apply_arguments_to_config(ns, config)
+    assert config.from_version is None
+    assert config.major_start == 3
+    assert config.minor_start == 2
+    assert config.patch_start == 1

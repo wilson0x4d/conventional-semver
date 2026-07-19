@@ -13,7 +13,11 @@ import sys
 from typing import Optional
 
 from .ChangelogOutputGenerator import ChangelogOutputGenerator
-from .CommandLineProcessor import CommandlineProcessor
+from .CommandLineProcessor import (
+    CommandlineProcessor,
+    apply_arguments_to_config,
+    parse_arguments,
+)
 from .Configuration import Configuration
 from .GitAdapter import GitAdapter
 from .GitEntryParser import GitEntryParser
@@ -26,13 +30,13 @@ from . import __version__, __commit__
 def main(argv: Optional[list[str]] = sys.argv[1:]) -> int:
     """Orchestrate configuration, parsing, and output generation.
 
-    Initializes :class:`~conventional_semver.Configuration`, processes command-line options via :class:`~conventional_semver.CommandlineProcessor`, runs the git log through :class:`~conventional_semver.GitAdapter`, then triggers all registered generators to produce their output.
+    Initializes :class:`~conventional_semver.Configuration`, processes command-line options via :func:`~conventional_semver.CommandLineProcessor.parse_arguments` and :func:`~conventional_semver.CommandLineProcessor.apply_arguments_to_config`, runs the git log through :class:`~conventional_semver.GitAdapter`, then triggers all registered generators to produce their output.
 
     :returns: Zero on success; non-zero on error.
     """
     config = Configuration()
-    cmd_processor = CommandlineProcessor(config, __version__, __commit__)
-    cmd_processor.process_command_line(argv)
+    ns = parse_arguments(argv)
+    apply_arguments_to_config(ns, config)
     config.process_configuration()
 
     output_generator: OutputGenerator

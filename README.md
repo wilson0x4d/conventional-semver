@@ -15,6 +15,7 @@ Options:
         --tag <name>        indicates which tag to start changelog from.
         --changelog <file>  overrides the name of the file the changelog is written to, otherwise changelog.md is the default.
         --no-semver         disable SEMVER output to STDOUT.
+        --from <version>    set the baseline semver as a single `X.Y.Z` value (e.g. `--from 1.4.0`).
         --major             SEMVER Major component will start with this value, default is 0.
         --minor             SEMVER Minor component will start with this value, default is 0.
         --patch             SEMVER Patch component will start with this value, default is 0.
@@ -45,14 +46,26 @@ $ echo $SEMVER
 
 #### Override Baseline SEMVER
 
-Projects adopting Conventional Commits may need to customize the baseline SEMVER, rather than starting from `0.0.0`. This can be done with the `--major`, `--minor`, and `--patch` arguments.
+Projects adopting Conventional Commits may need to customize the baseline SEMVER, rather than starting from `0.0.0`. This can be done in two ways:
 
-When run on a repo containing three non-conventional commits:
+**Using `--from`** — supply a single semver string:
 
 ```bash
-$ conventional-semver --major 1 --minor 2 --patch 3
-1.2.6
+$ conventional-semver --from 1.4.0
+1.4.3
 ```
+
+**Using `--major`, `--minor`, and `--patch`** — specify each component individually:
+
+```bash
+$ conventional-semver --from 1.4.0
+1.4.3
+
+$ conventional-semver --major 1 --minor 4 --patch 0
+1.4.3
+```
+
+Only `--from` *or* the individual `--major`/`--minor`/`--patch` flags may be used; when both are supplied, `--from` takes precedence.
 
 #### SEMVER Configuration
 

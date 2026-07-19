@@ -3,7 +3,7 @@
 
 """Manage application settings loaded from disk or defaults.
 
-Provides :class:`Configuration` which loads settings from ``conventional-semver.json`` or environment paths, builds regex patterns for commit-type detection, and resolves the git repository path when processing is required.
+Provides :class:`Configuration` which loads settings from ``conventional-semver.conf`` or environment paths, builds regex patterns for commit-type detection, and resolves the git repository path when processing is required.
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ from .SemverComponentType import SemverComponentType
 class Configuration:
     """Manage application settings loaded from disk or defaults.
 
-    Loads configuration from ``conventional-semver.json`` or environment paths, builds regex patterns for commit-type detection, and resolves the git repository path when processing is required.
+    Loads configuration from ``conventional-semver.conf`` or environment paths, builds regex patterns for commit-type detection, and resolves the git repository path when processing is required.
 
     Usage
     -----
@@ -38,6 +38,7 @@ class Configuration:
     config_file: str
     disable_semver_output: bool
     footers: list[tuple[re.Pattern, SemverComponentType]]
+    from_version: str | None
     git_path: str
     major_start: int
     minor_start: int
@@ -62,6 +63,7 @@ class Configuration:
         self.config_file = ''
         self.disable_semver_output = False
         self.footers = []
+        self.from_version = None
         self.git_path = ''
         self.major_start = 0
         self.minor_start = 0
@@ -70,6 +72,36 @@ class Configuration:
         self.start_tag = ''
         self.types = []
         self.repo_path = ''
+
+    def set_start_from(self, version: str) -> None:
+        """Parse a semver string and set the baseline major/minor/patch.
+
+        Expects the form ``X.Y.Z`` where ``X``, ``Y``, and ``Z`` are
+        non-negative integers.  Sets ``major_start``, ``minor_start``, and
+        ``patch_start`` accordingly.
+
+        :param version: A valid semver version string such as ``"1.4.0"``.
+        :raises ValueError: If the string cannot be parsed as ``X.Y.Z``.
+        """
+        parts = version.strip().split('.')
+        if len(parts) != 3:
+            raise ValueError(
+                f'Invalid semver baseline "{version}": expected X.Y.Z'
+            )
+        try:
+            major, minor, patch = [int(p) for p in parts]
+        except ValueError:
+            raise ValueError(
+                f'Invalid semver baseline "{version}": all components must be integers'
+            )
+        if major < 0 or minor < 0 or patch < 0:
+            raise ValueError(
+                f'Invalid semver baseline "{version}": components must be non-negative'
+            )
+        self.from_version = version
+        self.major_start = major
+        self.minor_start = minor
+        self.patch_start = patch
 
     @staticmethod
     def _match_patterns(
@@ -222,9 +254,9 @@ class Configuration:
                 )
         else:
             candidate_paths = [
-                './conventional-semver.json',
-                os.path.expanduser('~/.config/conventional-semver/settings.json'),
-                '/etc/conventional-semver/settings.json',
+                './conventional-semver.conf',
+                os.path.expanduser('~/.config/conventional-semver/settings.conf'),
+                '/etc/conventional-semver/settings.conf',
             ]
             for cand in candidate_paths:
                 if self.__process_configuration_file(cand):

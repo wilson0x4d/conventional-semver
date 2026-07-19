@@ -19,5 +19,6 @@ Contents
 
    Overview <self>
    Usage <usage>
+   Reference <ref/index>
    MIT License <license>
    Contact <contact>

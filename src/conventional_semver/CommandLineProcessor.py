@@ -105,16 +105,38 @@ def _create_parser() -> argparse.ArgumentParser:
         help='override the path to the git executable (default: use PATH)',
     )
 
-    # -- SEMVER baseline version components --
-    for component in ('major', 'minor', 'patch'):
-        parser.add_argument(
-            f'--{component}',
-            type=int,
-            default=0,
-            dest=f'{component}_start',
-            metavar='N',
-            help=f"SEMVER '{component.capitalize()}' component start value (default: 0)",
-        )
+    # -- SEMVER baseline options --
+    parser.add_argument(
+        '--from',
+        dest='from_version',
+        default=None,
+        metavar='VERSION',
+        help='set the baseline semver as a single X.Y.Z value',
+    )
+    parser.add_argument(
+        '--major',
+        dest='major_start',
+        type=int,
+        default=0,
+        metavar='N',
+        help="SEMVER 'Major' component start value (default: 0, ignored when --from is used)",
+    )
+    parser.add_argument(
+        '--minor',
+        dest='minor_start',
+        type=int,
+        default=0,
+        metavar='N',
+        help="SEMVER 'Minor' component start value (default: 0, ignored when --from is used)",
+    )
+    parser.add_argument(
+        '--patch',
+        dest='patch_start',
+        type=int,
+        default=0,
+        metavar='N',
+        help="SEMVER 'Patch' component start value (default: 0, ignored when --from is used)",
+    )
 
     # -- Positional argument --
     parser.add_argument(
@@ -190,10 +212,16 @@ def apply_arguments_to_config(ns: argparse.Namespace, config: Configuration) -> 
     if ns.git_path:
         config.git_path = ns.git_path
 
-    # SEMVER baseline defaults (0) are already set in Configuration.__init__
-    config.major_start = ns.major_start
-    config.minor_start = ns.minor_start
-    config.patch_start = ns.patch_start
+    # SEMVER baseline (from_version takes precedence over individual flags)
+    if ns.from_version:
+        try:
+            config.set_start_from(ns.from_version)
+        except ValueError as exc:
+            raise SystemExit(f'error: {exc}') from exc
+    else:
+        config.major_start = ns.major_start
+        config.minor_start = ns.minor_start
+        config.patch_start = ns.patch_start
 
     # Output control
     if ns.disable_semver_output:
