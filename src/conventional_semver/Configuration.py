@@ -104,6 +104,28 @@ class Configuration:
         self.patch_start = patch
 
     @staticmethod
+    def _validate_git_path(path: str) -> None:
+        """Validate that *path* points to an existing executable.
+
+        When *path* is empty the validation is skipped since an empty value
+        defers to a standard ``git`` lookup on ``PATH``.
+
+        :param path: The file-system path to validate.
+        :raises ValueError: If the path is non-empty but does not exist or is not executable.
+        """
+        if not path:
+            return
+        resolved = Path(path).expanduser()
+        if not resolved.is_file():
+            raise ValueError(
+                f'git path "{path}" does not exist'
+            )
+        if not os.access(resolved, os.X_OK):
+            raise ValueError(
+                f'git path "{path}" is not executable'
+            )
+
+    @staticmethod
     def _match_patterns(
         items: list[tuple[re.Pattern, SemverComponentType]],
         subject_or_line: str,
@@ -293,5 +315,10 @@ class Configuration:
 
         if not self.git_path:
             self.git_path = 'git'
+
+        # Validate git_path exists and is executable when explicitly provided.
+        # An empty string means "use PATH" — no further validation needed.
+        if self.git_path and self.git_path != 'git':
+            Configuration._validate_git_path(self.git_path)
 
         self.__print_configuration_summary()

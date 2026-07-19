@@ -34,33 +34,37 @@ def main(argv: Optional[list[str]] = sys.argv[1:]) -> int:
 
     :returns: Zero on success; non-zero on error.
     """
-    config = Configuration()
-    ns = parse_arguments(argv)
-    apply_arguments_to_config(ns, config)
-    config.process_configuration()
+    try:
+        config = Configuration()
+        ns = parse_arguments(argv)
+        apply_arguments_to_config(ns, config)
+        config.process_configuration()
 
-    output_generator: OutputGenerator
-    output_generators = list[OutputGenerator]()
-    if not config.disable_semver_output:
-        output_generators.append(SemverOutputGenerator(config))
-    if config.changelog_output_file:
-        output_generator = ChangelogOutputGenerator(config)
-        if config.changelog_template:
-            output_generator.set_changelog_template(config.changelog_template)
-        output_generators.append(output_generator)
+        output_generator: OutputGenerator
+        output_generators = list[OutputGenerator]()
+        if not config.disable_semver_output:
+            output_generators.append(SemverOutputGenerator(config))
+        if config.changelog_output_file:
+            output_generator = ChangelogOutputGenerator(config)
+            if config.changelog_template:
+                output_generator.set_changelog_template(config.changelog_template)
+            output_generators.append(output_generator)
 
-    git_entry_parser = GitEntryParser()
-    git_adapter = GitAdapter(
-        config,
-        git_entry_parser,
-        output_generators,
-        semver_change_callback=Configuration.compute_semver_change,
-    )
-    git_adapter.process_git_log()
+        git_entry_parser = GitEntryParser()
+        git_adapter = GitAdapter(
+            config,
+            git_entry_parser,
+            output_generators,
+            semver_change_callback=Configuration.compute_semver_change,
+        )
+        git_adapter.process_git_log()
 
-    for output_generator in output_generators:
-        output_generator.generate_output()
-    return 0
+        for output_generator in output_generators:
+            output_generator.generate_output()
+        return 0
+    except ValueError as exc:
+        print(f'error: {exc}', file=sys.stderr)
+        return 1
 
 
 if __name__ == '__main__':

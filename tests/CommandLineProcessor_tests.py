@@ -446,3 +446,109 @@ def from_version_none_means_default_separate_flags_used() -> None:
     assert config.major_start == 3
     assert config.minor_start == 2
     assert config.patch_start == 1
+
+
+# -- git_path validation tests
+
+
+@fact
+def validate_git_path_empty_is_ok() -> None:
+    """An empty git_path is skipped — means 'use PATH'."""
+    from conventional_semver.Configuration import Configuration
+
+    Configuration._validate_git_path('')
+
+
+@fact
+def validate_git_path_valid_executable_succeeds() -> None:
+    """A real executable path passes validation."""
+    import shutil
+
+    from conventional_semver.Configuration import Configuration
+
+    git = shutil.which('git')
+    assert git is not None, 'git must be on PATH for this test'
+    Configuration._validate_git_path(git)
+
+
+@fact
+def validate_git_path_nonexistent_raises() -> None:
+    """A non-existent git path raises a clear ValueError."""
+    from conventional_semver.Configuration import Configuration
+
+    try:
+        Configuration._validate_git_path('/no/such/git')
+    except ValueError as exc:
+        assert 'does not exist' in str(exc)
+    else:
+        raise AssertionError('expected ValueError')
+
+
+@fact
+def validate_git_path_non_executable_raises() -> None:
+    """A file that exists but is not executable raises a clear error."""
+    import tempfile
+    import os
+
+    from conventional_semver.Configuration import Configuration
+
+    with tempfile.NamedTemporaryFile(delete=False) as fh:
+        fh.write(b'not executable')
+        tmp_path = fh.name
+
+    try:
+        os.chmod(tmp_path, 0o444)
+        try:
+            Configuration._validate_git_path(tmp_path)
+        except ValueError as exc:
+            assert 'not executable' in str(exc)
+        else:
+            raise AssertionError('expected ValueError')
+    finally:
+        os.chmod(tmp_path, 0o644)
+        os.unlink(tmp_path)
+
+
+@fact
+def git_path_flag_is_mapped_to_config() -> None:
+    """The --git-path CLI flag maps onto config.git_path."""
+    from conventional_semver.CommandLineProcessor import (
+        apply_arguments_to_config,
+        parse_arguments,
+    )
+    from conventional_semver.Configuration import Configuration
+
+    config = Configuration()
+    ns = parse_arguments(['--git-path', '/custom/git'])
+    apply_arguments_to_config(ns, config)
+    assert config.git_path == '/custom/git'
+
+
+@fact
+def git_path_omitted_means_empty() -> None:
+    """When --git-path is not passed, config.git_path stays empty."""
+    from conventional_semver.CommandLineProcessor import (
+        apply_arguments_to_config,
+        parse_arguments,
+    )
+    from conventional_semver.Configuration import Configuration
+
+    config = Configuration()
+    ns = parse_arguments([])
+    apply_arguments_to_config(ns, config)
+    assert config.git_path == ''
+
+
+@fact
+def process_configuration_validates_git_path() -> None:
+    """process_configuration() validates an explicit git_path."""
+    from conventional_semver.Configuration import Configuration
+
+    config = Configuration()
+    config.git_path = '/no/such/git'
+    try:
+        config.process_configuration()
+    except ValueError as exc:
+        assert 'does not exist' in str(exc)
+    else:
+        raise AssertionError('expected ValueError')
