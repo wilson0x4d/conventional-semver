@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "py-conventional-semver"
 version = "0.0.0"
@@ -15,15 +19,16 @@ classifiers = [
 ]
 requires-python = ">=3.11"
 dependencies = [
-    "hanaro (>=1.0.0)",
+    "hanaro (>=1.3.6)",
     "jinja2 (>=3.1.6)"
 ]
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
+    "build",
     "coverage",
     "mypy",
-    "punit (>=1.10.8)",
+    "punit (>=1.14.1)",
     "twine"
 ]
 
@@ -37,3 +42,6 @@ conventional-semver = "conventional_semver.__main__:main"
 
 [tool.setuptools.package-data]
 "py-conventional-semver" = ["py.typed"]
+
+[tool.uv]
+package = true

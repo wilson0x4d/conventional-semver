@@ -20,14 +20,14 @@ release = f'{__version__}'
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
 extensions = [
+    'sphinx_design',
     'sphinx.ext.autodoc',
     'sphinx.ext.autosummary',       # nice summary tables
     'sphinx.ext.intersphinx',
-    'sphinx_autodoc_typehints',     # type-hint rendering
-    'sphinx_rtd_theme'
+    'sphinx_autodoc_typehints'     # type-hint rendering
 ]
 
-autosummary_generate = True        # generate stub pages automatically
+autosummary_generate: list[str] = []  # we use automodule in our RST files, not autosummary stubs
 
 templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
@@ -50,7 +50,7 @@ html_theme_options = {
     'navigation_depth': 3,
     'includehidden': True,
     'titles_only': True
-}   
+}
 
 
 #
@@ -60,3 +60,11 @@ html_show_sourcelink = False
 autodoc_inherit_docstrings = True
 set_type_checking_flag = True
 add_module_names = False
+
+pygments_style = 'friendly'
+pygments_dark_style = 'monokai'
+
+html_permalinks_icon = '<span>#</span>'
+
+toc_object_entries_show_parents = 'hide'
+add_presentation_hints = True
