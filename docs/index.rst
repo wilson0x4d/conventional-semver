@@ -20,5 +20,6 @@ Contents
    Overview <self>
    Usage <usage>
    Reference <ref/index>
+   SKILL.md <SKILL>
    MIT License <license>
    Contact <contact>

@@ -13,4 +13,5 @@ sed "s/0abc123/$(git rev-parse --short HEAD)/g" --in-place src/conventional_semv
 rm -rf build/
 rm -rf dist/
 rm -rf src/*.egg-info/
+cp SKILL.md src/conventional_semver/
 python3 -m build
