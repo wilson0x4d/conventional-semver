@@ -80,6 +80,7 @@ When no custom configuration file is provided the following defaults are used:
 
    [footers]
    BREAKING[\-\.]CHANGE=major
+   breaks:=major
 
 
 Configuring Patterns
@@ -195,6 +196,7 @@ which bump level.
 
    [footers]
    BREAKING[\-\.]CHANGE=major
+   breaks:=major
 
 Programmatic API
 ~~~~~~~~~~~~~~~~~~~~~

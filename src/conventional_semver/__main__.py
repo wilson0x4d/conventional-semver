@@ -8,39 +8,34 @@ Initializes configuration, processes command-line options, runs the git log thro
 
 from __future__ import annotations
 
-
-
-
-import os
-import subprocess
 import sys
-from typing import Optional
 
-from .ChangelogOutputGenerator import ChangelogOutputGenerator
-from .CommandLineProcessor import (
-    CommandlineProcessor,
+from .changelog_output_generator import ChangelogOutputGenerator
+from .command_line_processor import (
     apply_arguments_to_config,
     parse_arguments,
 )
-from .Configuration import Configuration
-from .GitAdapter import GitAdapter
-from .GitEntry import GitEntry
-from .GitEntryParser import GitEntryParser
-from .OutputGenerator import OutputGenerator
-from .SemverOutputGenerator import SemverOutputGenerator
-from .Validator import Validator
-
-from . import __version__, __commit__
+from .configuration import Configuration
+from .git_adapter import GitAdapter
+from .git_entry import GitEntry
+from .git_entry_parser import GitEntryParser
+from .output_generator import OutputGenerator
+from .semver_output_generator import SemverOutputGenerator
+from .validator import Validator
 
 
-def main(argv: Optional[list[str]] = sys.argv[1:]) -> int:
+def main(argv: list[str] | None = None) -> int:
     """Orchestrate configuration, parsing, and output generation.
 
-    Initializes :class:`~conventional_semver.Configuration`, processes command-line options via :func:`~conventional_semver.CommandLineProcessor.parse_arguments` and :func:`~conventional_semver.CommandLineProcessor.apply_arguments_to_config`, runs the git log through :class:`~conventional_semver.GitAdapter`, then triggers all registered generators to produce their output.
+    Initializes :class:`~conventional_semver.configuration`, processes command-line options via :func:`~conventional_semver.command_line_processor.parse_arguments` and :func:`~conventional_semver.command_line_processor.apply_arguments_to_config`, runs the git log through :class:`~conventional_semver.git_adapter`, then triggers all registered generators to produce their output.
 
+    :param argv: Command-line arguments; defaults to ``sys.argv[1:]``.
     :returns: Zero on success; non-zero on error.
     """
     try:
+        if argv is None:
+            argv = sys.argv[1:]
+
         config = Configuration()
         ns = parse_arguments(argv)
         apply_arguments_to_config(ns, config)
@@ -54,37 +49,10 @@ def main(argv: Optional[list[str]] = sys.argv[1:]) -> int:
                 return 1
 
         if config.validate_message is True:
-            from .GitLogStream import GitLogStream
-
             validator = Validator(config)
-            git_entry_parser = GitEntryParser()
-            git_log_stream = GitLogStream(git_entry_parser)
-
-            try:
-                proc = subprocess.Popen(
-                    [config.git_path, '--no-pager', '-C', config.repo_path,
-                     'log', '--reverse',
-                     '--format=tformat:%H%n%D%n%B%n%xef'],
-                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                    cwd=config.repo_path,
-                )
-            except OSError as ex:
-                raise RuntimeError(f'Failed to start git: {ex}') from ex
-
-            stdout_bytes, stderr_bytes = proc.communicate()
-
-            if stderr_bytes:
-                os.write(sys.stderr.fileno(), stderr_bytes)
-
-            if proc.returncode != 0:
-                os._exit(proc.returncode)
-
-            git_log_stream.write(stdout_bytes, len(stdout_bytes))
             entries: list[GitEntry] = []
-            entry = git_log_stream.readentry()
-            while not entry.is_empty():
-                entries.append(entry)
-                entry = git_log_stream.readentry()
+            git_adapter = GitAdapter(config, GitEntryParser(), [])
+            git_adapter.process_git_log(entry_sink=entries)
 
             errors = validator.validate_log(entries)
             if errors:
@@ -92,15 +60,14 @@ def main(argv: Optional[list[str]] = sys.argv[1:]) -> int:
                     print(f'error: {e}', file=sys.stderr)
                 return 1
 
-        output_generator: OutputGenerator
         output_generators = list[OutputGenerator]()
         if not config.disable_semver_output:
             output_generators.append(SemverOutputGenerator(config))
         if config.changelog_output_file:
-            output_generator = ChangelogOutputGenerator(config)
+            changelog_generator = ChangelogOutputGenerator(config)
             if config.changelog_template:
-                output_generator.set_changelog_template(config.changelog_template)
-            output_generators.append(output_generator)
+                changelog_generator.set_changelog_template(config.changelog_template)
+            output_generators.append(changelog_generator)
 
         git_entry_parser = GitEntryParser()
         git_adapter = GitAdapter(
@@ -111,8 +78,8 @@ def main(argv: Optional[list[str]] = sys.argv[1:]) -> int:
         )
         git_adapter.process_git_log()
 
-        for output_generator in output_generators:
-            output_generator.generate_output()
+        for generator in output_generators:
+            generator.generate_output()
         return 0
     except ValueError as exc:
         print(f'error: {exc}', file=sys.stderr)

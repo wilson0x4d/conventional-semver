@@ -8,21 +8,27 @@ Usage:
         conventional-semver [options] [repo-path]
 
 Options:
-        --help              print usage, then exit.
-        --version           print version info, then exit.
-        --verbose           enable verbose (debug) output.
-        --commit <hash>     indicates which commit hash to start changelog from.
-        --tag <name>        indicates which tag to start changelog from.
-        --changelog <file>  overrides the name of the file the changelog is written to, otherwise changelog.md is the default.
-        --no-semver         disable SEMVER output to STDOUT.
-        --from <version>    set the baseline semver as a single `X.Y.Z` value (e.g. `--from 1.4.0`).
-        --major             SEMVER Major component will start with this value, default is 0.
-        --minor             SEMVER Minor component will start with this value, default is 0.
-        --patch             SEMVER Patch component will start with this value, default is 0.
-        --git-path <path>   overrides the path to `git` tool, otherwise `git` must be in environment PATH.
+        -h, --help                    print usage, then exit.
+        --version                     print version info, then exit.
+        --verbose, -v                 enable verbose (debug) output.
+        --no-semver                   disable SEMVER output to STDOUT.
+        --validate [MESSAGE]          validate commit messages against configured patterns (use MESSAGE to validate a specific commit instead of the log).
+        --changelog [FILE]            enable changelog output; defaults to CHANGELOG.md if no file given.
+        --changelog-template <path>   path to a custom Jinja2 changelog template.
+        --commit-url <URL>            base URL for commit links in the changelog; a / separator is added between the URL and hash.
+        --commit <hash>               start changelog from a specific commit hash.
+        --tag <name>                  start changelog from a specific tag name.
+        --config <file>               path to a custom config file (default: search standard locations).
+        --git-path <path>             override the path to the git executable (default: use PATH).
+        --from <X.Y.Z>                set the baseline semver as a single X.Y.Z value (e.g. `--from 1.4.0`).
+        --major <N>                   SEMVER major component start value (default: 0, ignored when --from is used).
+        --minor <N>                   SEMVER minor component start value (default: 0, ignored when --from is used).
+        --patch <N>                   SEMVER patch component start value (default: 0, ignored when --from is used).
+        --trust-repo-templates        explicitly allow a changelog template that lies inside the repo being processed (unsafe for untrusted repos)..
+        --trust-ugc                   treat commit content as trusted and disable HTML autoescaping (unsafe for untrusted repos).
 
 Parameters:
-        repo-path           the path of the git repository to process, if not specified defaults to working directory.
+        repo-path                     the path to the git repository to process; defaults to the working directory.
 ```
 
 ### Generating SEMVER
@@ -73,9 +79,10 @@ When run without any command-line arguments a default set of settings are used w
 
 To customize behavior a configuration file may be created. This file can be passed in using a `--config` argument, or, placed into one of the following well-known locations (and in the following order):
 
-* `./conventional-semver.conf` (working directory.)
 * `~/.config/conventional-semver/settings.conf` (user profile `.config` directory.)
 * `/etc/conventional-semver/settings.conf` (root `/etc` directory.)
+
+> **NOTE:** Loading a `conventional-semver.conf` from inside the repo (the working directory) became opt-in behavior with the 2.0.0 release. Use `--config` to load a configuration file from the repo being processed.
 
 The configuration file should have the following format:
 
@@ -96,6 +103,8 @@ feat.*=minor
 # mirrors the default configuration:
 [footers]
 BREAKING[\-\.]CHANGE=major
+breaks:=major
+
 
 # in each of the above sections, each line
 # represents a key-value pair. the key is a regex
@@ -103,11 +112,11 @@ BREAKING[\-\.]CHANGE=major
 # incremented if the regex is a match.
 ```
 
-There is a sample configuration file located in this repo as `config/conventional-semver.conf` which contains additional comments and explanations, you can customize it to fit your needs and then place it at one of the well-known locations mentioned above.
+There is a sample configuration file located in this repo as `configs/conventional-semver.conf` which contains additional comments and explanations, you can customize it to fit your needs and then place it at one of the well-known locations mentioned above.
 
 ## Generating CHANGELOG
 
-To generate a CHANGELOG you specify the `--changelog [filename]` switch, this takes an optional filename argument. If no filename is provided a default filename of `./CHANGELOG` is used to emit a file into the current working directory.
+To generate a CHANGELOG you specify the `--changelog [filename]` switch, this takes an optional filename argument. If no filename is provided a default filename of `CHANGELOG.md` is used to emit a file into the current working directory.
 
 Example:
 
@@ -128,11 +137,11 @@ The default template is built-in, and is designed to produce a file that is mark
 To specify a custom template, supply an additional `--changelog-template <template path>` argument that indicates where the template can be found:
 
 ```bash
-$ conventional-semver --changelog --template ./templates/template_name.j2
+$ conventional-semver --changelog --changelog-template ./templates/template_name.j2
 ```
 
 ```bash
-$ conventional-semver --changelog ./CHANGELOG.rst --template ./templates/template_name.j2
+$ conventional-semver --changelog ./CHANGELOG.rst --changelog-template ./templates/template_name.j2
 ```
 
 #### Jinja2
@@ -145,23 +154,23 @@ Templates are provided a data dict having the following structure:
 
 ```json
 {
-    "name": <derived from working directory basename>,
-    "semver": <semver of most recent commit>,
-    "date": <date of most recent commit>,
-    "hash": <git hash of most recent commit>,
+    "name": <derived from the repo directory basename>,
+    "semver": <most recent semver computed from the log>,
+    "date": <today's date>,
+    "hash": <git hash of the most recent commit>,
     "versions": [
         {
-            "semver": <semver of commit>,
+            "semver": <semver of the version group>,
             "commits": [
                 {
                     "date": <commit date>,
-                    "hash": <commit hash>,
-                    "message": <original commit message>,
-                    "type": <the `type` parsed from commit message>,
-                    "scope": <the `scope` parsed from commit message>,
+                    "hash": <short git hash>,
+                    "type": <the `type` parsed from the commit message>,
+                    "scope": <the `scope` parsed from the commit message>,
                     "header": <the first line parsed from the commit message, sans `type` and `scope`>,
                     "body": <optional, the `body` lines parsed from the commit message, if defined>,
-                    "footers": <optional, the `trailing` lines parsed from the commit message, if defined>
+                    "footers": <optional, the footer lines parsed from the commit message, as a list of strings>,
+                    "commit_url": <optional, full commit URL when --commit-url is set>
                 }
             ]
         }
@@ -176,13 +185,16 @@ For each SEMVER increment a `"versions"` entry is provided. A single semver incr
 The built-in template looks approximately like this:
 
 ```jinja2
-        {% for version in versions %}
-        #### {{ version.semver }}
-        {% for commit in version.commits %}
-        - {{ commit.type }}({{ commit.scope }}): {{ commit.header }}{% if commit.body is defined %}
-        {{ commit.body }}
-        {% if commit.footers is defined %}
-        > {{ commit.footers }}{% endif %}{% else %}
-        {% endif %}
-        {%- endfor -%}{%- endfor -%}
+{% for version in versions %}
+#### {{ version.semver }}
+{% for commit in version.commits %}
+- {{ commit.type }}{% if commit.scope %}({{ commit.scope }}){% endif %}: {{ commit.header }} {% if commit.commit_url is defined %}
+[{{ commit.hash }}]({{ commit.commit_url }}){% endif %} {% if commit.body is defined %}
+{{ commit.body }}
+{% if commit.footers is defined %}
+{% for footer in commit.footers %}> {{ footer }}
+{%- endfor -%}{% endif %}{% else %}
+
+{% endif %}
+{%- endfor -%}{%- endfor -%}
 ```

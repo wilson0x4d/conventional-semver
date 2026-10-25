@@ -6,7 +6,7 @@
 
 Provides the :func:`parse_arguments` function which returns an
 :class:`~argparse.Namespace`, and the helper :func:`apply_arguments_to_config`
-which maps those parsed values onto a :class:`~conventional_semver.Configuration`
+which maps those parsed values onto a :class:`~conventional_semver.configuration`
 instance.
 
 The legacy :class:`CommandlineProcessor` class is retained for backward
@@ -16,9 +16,8 @@ compatibility with any external importers.
 from __future__ import annotations
 
 import argparse
-from typing import Optional
 
-from .Configuration import Configuration
+from .configuration import Configuration
 
 
 def _create_parser() -> argparse.ArgumentParser:
@@ -129,7 +128,7 @@ def _create_parser() -> argparse.ArgumentParser:
         type=int,
         default=0,
         metavar='N',
-        help="SEMVER 'Major' component start value (default: 0, ignored when --from is used)",
+        help='SEMVER major component start value (default: 0, ignored when --from is used)',
     )
     parser.add_argument(
         '--minor',
@@ -137,7 +136,7 @@ def _create_parser() -> argparse.ArgumentParser:
         type=int,
         default=0,
         metavar='N',
-        help="SEMVER 'Minor' component start value (default: 0, ignored when --from is used)",
+        help='SEMVER minor component start value (default: 0, ignored when --from is used)',
     )
     parser.add_argument(
         '--patch',
@@ -145,7 +144,23 @@ def _create_parser() -> argparse.ArgumentParser:
         type=int,
         default=0,
         metavar='N',
-        help="SEMVER 'Patch' component start value (default: 0, ignored when --from is used)",
+        help='SEMVER patch component start value (default: 0, ignored when --from is used)',
+    )
+
+    # -- Security args --
+    parser.add_argument(
+        '--trust-repo-templates',
+        dest='trust_repo_templates',
+        action='store_true',
+        default=False,
+        help='explicitly allow a changelog template that lies inside the repo being processed (unsafe for untrusted repos).',
+    )
+    parser.add_argument(
+        '--trust-ugc',
+        dest='trust_ugc',
+        action='store_true',
+        default=False,
+        help='treat commit content as trusted and disable HTML autoescaping (unsafe for untrusted repos)',
     )
 
     # -- Positional argument --
@@ -178,7 +193,7 @@ def _get_version() -> str:
     return f'conventional-semver {__version__} ({__commit__})'
 
 
-def parse_arguments(argv: Optional[list[str]] = None) -> argparse.Namespace:
+def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
     """Parse command-line arguments and return an :class:`~argparse.Namespace`.
 
     :param argv: Command-line arguments; defaults to ``sys.argv[1:]``.
@@ -194,7 +209,7 @@ def parse_arguments(argv: Optional[list[str]] = None) -> argparse.Namespace:
 
 
 def apply_arguments_to_config(ns: argparse.Namespace, config: Configuration) -> None:
-    """Map parsed namespace attributes onto a :class:`~conventional_semver.Configuration` instance.
+    """Map parsed namespace attributes onto a :class:`~conventional_semver.configuration` instance.
 
     Only non-empty / non-None values are applied so that default configuration
     values are not silently overwritten.
@@ -209,6 +224,10 @@ def apply_arguments_to_config(ns: argparse.Namespace, config: Configuration) -> 
     # Optional changelog metadata
     if ns.changelog_template:
         config.changelog_template = ns.changelog_template
+    if ns.trust_repo_templates:
+        config.trust_repo_templates = True
+    if ns.trust_ugc:
+        config.trust_ugc = True
     if ns.commit_url:
         config.commit_url = ns.commit_url.rstrip('/')
     if ns.start_commit_hash:
@@ -258,7 +277,7 @@ class CommandlineProcessor:
         processor.process_command_line(['--changelog'])
     """
 
-    _config: Configuration
+    __config: Configuration
 
     def __init__(self, config: Configuration, _version: str, _commit: str) -> None:
         """Initialize with configuration and version metadata.
@@ -267,26 +286,26 @@ class CommandlineProcessor:
         :param _version: The application version string (unused, kept for API compat).
         :param _commit: The build commit hash (unused, kept for API compat).
         """
-        self._config = config  # noqa: SLF001
+        self.__config = config
 
-    def process_command_line(self, argv: Optional[list[str]] = None) -> None:
+    def process_command_line(self, argv: list[str] | None = None) -> None:
         """Parse *argv* and apply command-line options to the configuration.
 
-        :param argv: Command-line arguments; defaults to ``sys.argv`` (with argv[0] stripped).
+        Legacy callers pass the full ``sys.argv`` (including argv[0]); the leading
+        script path is stripped defensively before parsing.  A single element that
+        looks like a file path (starts with ``/`` or ``\\``) is treated as a
+        leftover argv[0] and dropped; a single element that is a flag passes
+        through unchanged; an empty list or ``None`` yields no arguments.
+
+        :param argv: Command-line arguments; defaults to no arguments.
         """
-        # Defensive stripping: when 2+ elements are present, the first is likely
-        # argv[0] (the script path) — strip it so argparse only sees real flags.
-        # When exactly one element exists and looks like a file path (starts with / or \),
-        # also strip it as a leftover argv[0]. Single-element lists that are clearly flags
-        # (start with -) pass through unchanged; an empty list or None lets
-        # parse_arguments fall back to sys.argv without risking a double-slice that
-        # would drop flags like --changelog.
-        stripped: list[str]
-        if argv and len(argv) > 1:
+        if argv is None or not argv:
+            stripped: list[str] = []
+        elif len(argv) > 1:
             stripped = argv[1:]
-        elif argv and len(argv) == 1 and argv[0].startswith(('/', '\\')):
+        elif argv[0].startswith(('/', '\\')):
             stripped = []
         else:
-            stripped = argv if argv is not None else []
+            stripped = argv
         ns = parse_arguments(stripped)
-        apply_arguments_to_config(ns, self._config)
+        apply_arguments_to_config(ns, self.__config)

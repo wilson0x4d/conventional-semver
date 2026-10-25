@@ -1,7 +1,3 @@
-[build-system]
-requires = ["setuptools>=68"]
-build-backend = "setuptools.build_meta"
-
 [project]
 name = "py-conventional-semver"
 version = "0.0.0"
@@ -15,21 +11,24 @@ license = "MIT"
 classifiers = [
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
-    "Programming Language :: Python"
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15"
 ]
 requires-python = ">=3.11"
 dependencies = [
-    "hanaro (>=1.3.6)",
+    "hanaro (>=2.0.1)",
     "jinja2 (>=3.1.6)"
 ]
 
 [dependency-groups]
 dev = [
-    "build",
     "coverage",
     "mypy",
     "punit (>=1.14.1)",
-    "twine"
 ]
 
 [project.urls]
@@ -41,7 +40,7 @@ Repository = "https://github.com/wilson0x4d/conventional-semver.git"
 conventional-semver = "conventional_semver.__main__:main"
 
 [tool.setuptools.package-data]
-"py-conventional-semver" = ["py.typed"]
+"py-conventional-semver" = ["py.typed","SKILL.md"]
 
 [tool.uv]
 package = true

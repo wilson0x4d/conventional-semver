@@ -62,17 +62,14 @@ If no template path is supplied the generator uses this built-in template:
 
 .. code::
 
-   {% for version in versions %}
-   #### {{ version.semver }}
-   {% for commit in version.commits %}
-   - {{ commit.type }}({{ commit.scope }}): {{ commit.header }} {% if commit.url is defined %}[{{ commit.hash }}]({{ commit.url }}){% endif %} {% if commit.body is defined %}
-   {{ commit.body }}
-   {% if commit.footers is defined %}
-   {% for footer in commit.footers %}> {{ footer }}
-   {%- endfor -%}{% endif %}{% else %}
-   {% endif %}
-
-   {%- endfor -%}{% endfor -%}
+   {% for version in versions %}\n
+   #### {{ version.semver }}\n
+   {% for commit in version.commits %}\n
+   - {{ commit.type }}{% if commit.scope %}({{ commit.scope }}){% endif %}: {{ commit.header }} {% if commit.commit_url is defined %}\n
+   [{{ commit.hash }}]({{ commit.commit_url }}){% endif %} {% if commit.body is defined %}\n
+   {{ commit.body }}\n{% if commit.footers is defined %}\n
+   {% for footer in commit.footers %}> {{ footer }}\n{%- endfor -%}{% endif %}{% else %}\n\n{% endif %}\n
+   {%- endfor -%}{%- endfor -%}\n
 
 
 Custom Template Examples
@@ -317,9 +314,29 @@ Template Lookup Order
 
 When ``--changelog-template`` is specified, the generator reads the filesystem
 at the exact path you provide (relative or absolute). The file is read with
-``encoding='utf-8'`` and passed to ``jinja2.Template(raw)``.
+``encoding='utf-8'`` and rendered through a sandboxed Jinja2 environment with
+HTML autoescaping enabled by default (``--trust-ugc`` disables it).
 
 If you pass ``None`` (no flag), the built-in template is used automatically.
+
+Security
+~~~~~~~~
+
+Template content is compiled and executed by the Jinja2 engine, so a template
+is *executable code*. Commit content is only ever passed as render data
+(autoescaped), but the template itself must be trusted.
+
+Because of this, a template that lies **inside the repository being processed**
+is rejected with an error unless ``--trust-repo-templates`` is passed
+explicitly. This prevents a repo (or PR) from smuggling template code into a
+CI/CD pipeline that runs the tool against its checkout. Templates stored in
+the repo being processed must be deliberately opted into with
+``--trust-repo-templates``; templates kept outside the repo (e.g. a shared
+build asset) are always allowed.
+
+The changelog template path is validated early (configuration processing), so
+a missing template file or a blocked in-repo template fails the run before any
+git processing occurs.
 
 You can also set the template path programmatically:
 
@@ -351,8 +368,12 @@ Best Practices
 * **Test with diverse commits.** Ensure your template handles commits without
   bodies, without scopes, and without footers correctly.
 
-* **Escape user content.** If footers or bodies may contain special
-  characters, apply the ``| e`` (escape) filter.
+* **Commit content is autoescaped.** All commit-derived values (``header``,
+  ``body``, ``footers``, etc.) are HTML-escaped automatically when rendered,
+  so commit messages cannot inject live HTML/JS into the changelog. Pass
+  ``--trust-ugc`` to render content verbatim, and only for repos you fully
+  trust. Apply the ``| e`` filter only if you are deliberately rendering
+  pre-escaped content again, which you almost never want.
 
 
 Quick-Start Checklist
@@ -360,23 +381,31 @@ Quick-Start Checklist
 
 1. Write your template as a ``.j2`` file.
 2. Test it locally with
-   ``conventional-semver --changelog --changelog-template ./my-template.j2``.
+   ``conventional-semver --changelog --changelog-template ./my-template.j2 --trust-repo-templates``
+   (the flag is only needed while the template sits inside the repo being
+   processed).
 3. Add ``--changelog-template`` to your CI/CD pipeline configuration.
-4. Commit the template alongside your project.
+4. Commit the template alongside your project. If your pipeline processes that
+   same repo (e.g. on push or PR), also pass ``--trust-repo-templates``;
+   otherwise keep the template outside the repo being processed.
 
 For reference, the default template is available in the source at
-``src/conventional_semver/Changelog.py:__DEFAULT_TEMPLATE``.
+``src/conventional_semver/changelog.py:__DEFAULT_TEMPLATE``.
 
 
 Implementation Notes
 --------------------
 
 Template rendering is performed by
-:class:`~conventional_semver.Changelog.generate`. Each call creates a new
-``jinja2.Template`` instance from the raw template string. Data is passed via
+:class:`~conventional_semver.changelog.Changelog.generate`. Each call compiles
+the raw template string through a
+``jinja2.sandbox.SandboxedEnvironment`` with ``autoescape=True`` by default
+(``--trust-ugc`` disables it), so all commit-derived data is HTML-escaped on
+output and template code cannot reach
+arbitrary Python attributes, callables, or builtins. Data is passed via
 ``**data`` using ``tmpl.render(**data)``. There is no template caching between
-calls; for repeated rendering of the same template string, reuse the
-``Template`` object directly.
+calls; for repeated rendering of the same template string, reuse the compiled
+template object directly.
 
 The ``ChangelogOutputGenerator`` is responsible for constructing the ``data``
 dict. It queries git for dates, groups commits by semver, and builds the

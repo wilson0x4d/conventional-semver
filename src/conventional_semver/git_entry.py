@@ -8,15 +8,21 @@ Provides :class:`GitEntry` with fields for commit metadata and helper methods fo
 
 from __future__ import annotations
 import re
-from typing import Optional
 
-from .SemverComponentType import SemverComponentType
+from .semver_component_type import SemverComponentType
 
 
 class GitEntry:
     """Represent a single conventional-commit parsed from git log output.
 
     Matches conventional commit format: ``type(scope): header`` (e.g. ``feat(cli): add help``, ``fix: crash``, ``chore: update deps``).
+
+    Usage
+    -----
+
+    .. code-block:: python
+        entry = GitEntry(commit_hash='abc123', subject='feat(cli): add help')
+        assert entry.extract_type() == 'feat'
     """
 
     __subject_pattern = re.compile(r'^([^!:(\s]+)(?:\(([^)]+)\))?!?:(.*)')
@@ -25,8 +31,8 @@ class GitEntry:
         self,
         commit_hash: str = '',
         body: str = '',
-        footers: Optional[list[str]] = None,
-        refs: Optional[list[str]] = None,
+        footers: list[str] | None = None,
+        refs: list[str] | None = None,
         subject: str = '',
         commit_date: str = '',
         semver: str = '',
@@ -52,31 +58,6 @@ class GitEntry:
         # see the same change-level without duplicating matching logic.
         self.semver_change: SemverComponentType = SemverComponentType.NONE
 
-    def is_empty(self) -> bool:
-        """Return ``True`` when the entry contains no data."""
-        return (
-            not self.commit_hash
-            and not self.body
-            and not self.footers
-            and not self.refs
-            and not self.subject
-        )
-
-    def _extract_type(self) -> str:
-        """Return the conventional commit type (e.g. ``'feat'``)."""
-        match = self.__subject_pattern.match(self.subject)
-        return match.group(1) if match else ''
-
-    def _extract_scope(self) -> str:
-        """Return the conventional commit scope, or empty string."""
-        match = self.__subject_pattern.match(self.subject)
-        return match.group(2) if match and match.group(2) else ''
-
-    def _extract_header(self) -> str:
-        """Return the conventional commit header text (after ``': '``)."""
-        match = self.__subject_pattern.match(self.subject)
-        return match.group(3).strip() if match else ''
-
     def __str__(self) -> str:
         """Produce a string representation of the git entry."""
         if self.is_empty():
@@ -93,3 +74,28 @@ class GitEntry:
             result += ','.join(self.footers)
 
         return result
+
+    def extract_header(self) -> str:
+        """Return the conventional commit header text (after ``': '``)."""
+        match = self.__subject_pattern.match(self.subject)
+        return match.group(3).strip() if match else ''
+
+    def extract_scope(self) -> str:
+        """Return the conventional commit scope, or empty string."""
+        match = self.__subject_pattern.match(self.subject)
+        return match.group(2) if match and match.group(2) else ''
+
+    def extract_type(self) -> str:
+        """Return the conventional commit type (e.g. ``'feat'``)."""
+        match = self.__subject_pattern.match(self.subject)
+        return match.group(1) if match else ''
+
+    def is_empty(self) -> bool:
+        """Return ``True`` when the entry contains no data."""
+        return (
+            not self.commit_hash
+            and not self.body
+            and not self.footers
+            and not self.refs
+            and not self.subject
+        )

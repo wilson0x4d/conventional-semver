@@ -30,6 +30,8 @@ conventional-semver [options] [repo-path]
 | `--config <file>` | Path to a custom config file (default: search standard locations) |
 | `--validate [MESSAGE]` | Validate commit messages against configured patterns |
 | `--commit-url <URL>` | Base URL for commit links in changelog |
+| `--trust-repo-templates` | Explicitly allow a changelog template that lies inside the repo being processed (unsafe for untrusted repos.)|
+| `--trust-ugc` | Treat commit content as trusted and disable HTML autoescaping (unsafe for untrusted repos.) |
 
 Positional `repo-path` defaults to the current working directory.
 
@@ -55,11 +57,14 @@ $ conventional-semver --validate
 ### Configuration Files
 
 Configuration can be placed in one of these locations (in precedence order):
-1. `./conventional-semver.conf` (working directory)
-2. `~/.config/conventional-semver/settings.conf` (user profile)
-3. `/etc/conventional-semver/settings.conf` (system-wide)
+1. `~/.config/conventional-semver/settings.conf` (user profile)
+2. `/etc/conventional-semver/settings.conf` (system-wide)
 
 Or specified via `--config`.
+
+> **NOTE:** Loading a `conventional-semver.conf` from inside the repo (the working directory) became opt-in behavior with the 2.0.0 release. Use `--config` to load a configuration file from the repo being processed.
+
+> **NOTE:** A `--changelog-template` that lies inside the repo being processed is blocked by default (templates are executable code); pass `--trust-repo-templates` to explicitly allow one.
 
 **Format** (INI-style with `[types]` and `[footers]` sections):
 
@@ -68,7 +73,7 @@ Or specified via `--config`.
 # empty lines are ignored
 
 # [types] section: regex patterns matched against commit type prefixes
-# values: major, minor, or patch (first letter: j, n, t)
+# values: major, minor, or patch (case-insensitive)
 [types]
 .*!=major
 feat.*=minor
@@ -77,6 +82,7 @@ feat.*=minor
 # [footers] section: regex patterns matched against footer lines
 [footers]
 BREAKING[\-\.]CHANGE=major
+breaks:=major
 ```
 
 Key = regex pattern, Value = component to increment when the pattern matches. Higher-precedence matches win (MAJOR > MINOR > PATCH).
@@ -100,12 +106,12 @@ Changelog output uses Jinja2 templates. The built-in default produces markdown. 
                 {
                     "date": "<commit date>",
                     "hash": "<short git hash>",
-                    "message": "<full commit message>",
                     "type": "<commit type>",
                     "scope": "<commit scope>",
                     "header": "<subject sans type/scope>",
                     "body": "<optional body>",
-                    "footers": "<optional footers>"
+                    "footers": "<optional footers>",
+                    "commit_url": "<optional commit URL, when --commit-url is set>"
                 }
             ]
         }

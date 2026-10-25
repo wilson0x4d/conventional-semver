@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (c) 2026 Shaun Wilson
+# SPDX-FileCopyrightText: © 2026 Shaun Wilson
 # SPDX-License-Identifier: MIT
 
 """Validate conventional commit messages against configured patterns.
@@ -30,19 +30,17 @@ Usage
 from __future__ import annotations
 
 import re
-from typing import TYPE_CHECKING
 
-from .GitEntry import GitEntry
-
-if TYPE_CHECKING:
-    from .Configuration import Configuration
+from .configuration import Configuration
+from .git_entry import GitEntry
+from .semver_component_type import SemverComponentType
 
 
 class Validator:
     """Validate conventional commit messages against configured patterns.
 
     Checks the type and footer portions of a commit message against the
-    :class:`~conventional_semver.Configuration` patterns.  A message is valid
+    :class:`~conventional_semver.configuration` patterns.  A message is valid
     when at least one type pattern or footer pattern matches the extracted type
     or any footer line.
 
@@ -56,16 +54,65 @@ class Validator:
         errors = validator.validate_log(entries)
     """
 
-    __types: list[tuple[re.Pattern, re.Match]]
-    __footers: list[tuple[re.Pattern, re.Match]]
+    __footers: list[tuple[re.Pattern, SemverComponentType]]
+    __types: list[tuple[re.Pattern, SemverComponentType]]
 
     def __init__(self, config: Configuration) -> None:
         """Initialize with the patterns from *config*.
 
         :param config: The active configuration containing type and footer patterns.
         """
-        self.__types = config.types  # type: ignore[assignment]
-        self.__footers = config.footers  # type: ignore[assignment]
+        self.__footers = config.footers
+        self.__types = config.types
+
+    def __entry_has_unrecognized_type(
+        self, entry: GitEntry, message: str
+    ) -> str | None:
+        """Return an error when *entry* type matches no configured pattern.
+
+        Checks every type pattern against the full subject line, the same way
+        :meth:`~conventional_semver.configuration.compute_semver_change` does,
+        then checks every footer pattern against each footer line.  If at least
+        one match is found the message is valid.
+
+        :param entry: A parsed git commit entry.
+        :param message: The full commit message for use in error output.
+        :returns: ``None`` when valid, or an error description string when unrecognized.
+        """
+        commit_type = entry.extract_type()
+        if not commit_type:
+            return f'Unrecognized commit message -- could not determine type: {message!r}'
+
+        for pattern, _ in self.__types:
+            if pattern.search(entry.subject):
+                return None
+
+        for footer_line in entry.footers:
+            for pattern, _ in self.__footers:
+                if pattern.search(footer_line):
+                    return None
+
+        return f'Unrecognized commit type: {commit_type!r} -- {message!r}'
+
+    def validate_log(
+        self,
+        entries: list[GitEntry],
+    ) -> list[str]:
+        """Validate a list of git commit entries.
+
+        Checks every entry using :meth:`validate_message` and returns all
+        discovered validation errors, making it suitable for CI/CD pipelines
+        that need to report every issue at once.
+
+        :param entries: A list of parsed :class:`~conventional_semver.git_entry` objects.
+        :returns: A list of error description strings; empty when all entries are valid.
+        """
+        errors: list[str] = []
+        for entry in entries:
+            error = self.__entry_has_unrecognized_type(entry, entry.subject)
+            if error is not None:
+                errors.append(error)
+        return errors
 
     def validate_message(self, message: str) -> str | None:
         """Validate a single commit message string.
@@ -79,53 +126,4 @@ class Validator:
         :returns: ``None`` when valid, or an error description string when unrecognized.
         """
         entry = GitEntry(subject=message)
-        return self._entry_has_unrecognized_type(entry, message)
-
-    def validate_log(
-        self,
-        entries: list[GitEntry],
-    ) -> list[str]:
-        """Validate a list of git commit entries.
-
-        Checks every entry using :meth:`validate_message` and returns all
-        discovered validation errors, making it suitable for CI/CD pipelines
-        that need to report every issue at once.
-
-        :param entries: A list of parsed :class:`~conventional_semver.GitEntry` objects.
-        :returns: A list of error description strings; empty when all entries are valid.
-        """
-        errors: list[str] = []
-        for entry in entries:
-            error = self._entry_has_unrecognized_type(entry, entry.subject)
-            if error is not None:
-                errors.append(error)
-        return errors
-
-    def _entry_has_unrecognized_type(
-        self, entry: GitEntry, message: str
-    ) -> str | None:
-        """Return an error when *entry* type matches no configured pattern.
-
-        Checks every type pattern against the full subject line, the same way
-        :meth:`~conventional_semver.Configuration.compute_semver_change` does,
-        then checks every footer pattern against each footer line.  If at least
-        one match is found the message is valid.
-
-        :param entry: A parsed git commit entry.
-        :param message: The full commit message for use in error output.
-        :returns: ``None`` when valid, or an error description string when unrecognized.
-        """
-        commit_type = entry._extract_type()
-        if not commit_type:
-            return f"Unrecognized commit message -- could not determine type: '{message}'"
-
-        for pattern, _ in self.__types:
-            if pattern.search(entry.subject):
-                return None
-
-        for footer_line in entry.footers:
-            for pattern, _ in self.__footers:
-                if pattern.search(footer_line):
-                    return None
-
-        return f"Unrecognized commit type: '{commit_type}' -- '{message}'"
+        return self.__entry_has_unrecognized_type(entry, message)

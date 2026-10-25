@@ -1,0 +1,699 @@
+# SPDX-FileCopyrightText: © 2026 Shaun Wilson
+# SPDX-License-Identifier: MIT
+
+"""Tests for the argparse-based :mod:`~conventional_semver.command_line_processor`."""
+
+from __future__ import annotations
+
+from punit import fact
+from typing import Callable
+
+
+@fact
+def changelog_without_value_uses_default() -> None:
+    from conventional_semver.command_line_processor import parse_arguments
+
+    ns = parse_arguments(['--changelog'])
+    assert ns.changelog == 'CHANGELOG.md', f"(expected='CHANGELOG.md', actual={ns.changelog!r})"
+
+
+@fact
+def changelog_with_explicit_path_uses_that_path() -> None:
+    from conventional_semver.command_line_processor import parse_arguments
+
+    ns = parse_arguments(['--changelog', '/custom/Changelog.rst'])
+    assert ns.changelog == '/custom/Changelog.rst', f"(expected='/custom/Changelog.rst', actual={ns.changelog!r})"
+
+
+@fact
+def changelog_absent_means_disabled() -> None:
+    from conventional_semver.command_line_processor import parse_arguments
+
+    ns = parse_arguments([])
+    assert ns.changelog is None, f"(expected=None, actual={ns.changelog!r})"
+
+
+@fact
+def no_semver_flag_sets_disable_on() -> None:
+    from conventional_semver.command_line_processor import parse_arguments
+
+    ns = parse_arguments(['--no-semver'])
+    assert ns.disable_semver_output is True, f"(expected=True, actual={ns.disable_semver_output!r})"
+
+
+@fact
+def no_no_semver_flag_means_enabled_by_default() -> None:
+    from conventional_semver.command_line_processor import parse_arguments
+
+    ns = parse_arguments([])
+    assert ns.disable_semver_output is False, f"(expected=False, actual={ns.disable_semver_output!r})"
+
+
+@fact
+def major_minor_patch_default_to_zero() -> None:
+    from conventional_semver.command_line_processor import parse_arguments
+
+    ns = parse_arguments([])
+    assert ns.major_start == 0, f"(expected=0, actual={ns.major_start!r})"
+    assert ns.minor_start == 0, f"(expected=0, actual={ns.minor_start!r})"
+    assert ns.patch_start == 0, f"(expected=0, actual={ns.patch_start!r})"
+
+
+@fact
+def major_component_respects_value() -> None:
+    from conventional_semver.command_line_processor import parse_arguments
+
+    ns = parse_arguments(['--major', '3'])
+    assert ns.major_start == 3, f"(expected=3, actual={ns.major_start!r})"
+
+
+@fact
+def minor_and_patch_together() -> None:
+    from conventional_semver.command_line_processor import parse_arguments
+
+    ns = parse_arguments(['--minor', '2', '--patch', '7'])
+    assert ns.minor_start == 2, f"(expected=2, actual={ns.minor_start!r})"
+    assert ns.patch_start == 7, f"(expected=7, actual={ns.patch_start!r})"
+
+
+@fact
+def commit_flag_sets_start_commit_hash() -> None:
+    from conventional_semver.command_line_processor import parse_arguments
+
+    ns = parse_arguments(['--commit', 'abc123'])
+    assert ns.start_commit_hash == 'abc123', f"(expected='abc123', actual={ns.start_commit_hash!r})"
+
+
+@fact
+def tag_flag_sets_start_tag() -> None:
+    from conventional_semver.command_line_processor import parse_arguments
+
+    ns = parse_arguments(['--tag', 'v1.0.0'])
+    assert ns.start_tag == 'v1.0.0', f"(expected='v1.0.0', actual={ns.start_tag!r})"
+
+
+@fact
+def config_file_flag_sets_config_file() -> None:
+    from conventional_semver.command_line_processor import parse_arguments
+
+    ns = parse_arguments(['--config', '/my/custom.conf'])
+    assert ns.config_file == '/my/custom.conf', f"(expected='/my/custom.conf', actual={ns.config_file!r})"
+
+
+@fact
+def git_path_flag_sets_git_path() -> None:
+    from conventional_semver.command_line_processor import parse_arguments
+
+    ns = parse_arguments(['--git-path', '/usr/local/bin/git'])
+    assert ns.git_path == '/usr/local/bin/git', f"(expected='/usr/local/bin/git', actual={ns.git_path!r})"
+
+
+@fact
+def positional_repo_path_defaults_to_none() -> None:
+    from conventional_semver.command_line_processor import parse_arguments
+
+    ns = parse_arguments([])
+    assert ns.repo_path is None, f"(expected=None, actual={ns.repo_path!r})"
+
+
+@fact
+def positional_repo_path_set_explicitly() -> None:
+    from conventional_semver.command_line_processor import parse_arguments
+
+    ns = parse_arguments(['/path/to/repo'])
+    assert ns.repo_path == '/path/to/repo', f"(expected='/path/to/repo', actual={ns.repo_path!r})"
+
+
+@fact
+def parse_arguments_none_uses_sys_argv() -> None:
+    """parse_arguments(None) defers to argparse's sys.argv[1:] default."""
+    import sys
+
+    from conventional_semver.command_line_processor import parse_arguments
+
+    old_argv = sys.argv
+    sys.argv = ['conventional-semver', '--no-semver']
+    try:
+        ns = parse_arguments(None)
+        assert ns.disable_semver_output is True, f"(expected=True, actual={ns.disable_semver_output!r})"
+    finally:
+        sys.argv = old_argv
+
+
+@fact
+def apply_maps_changelog_onto_config() -> None:
+    from conventional_semver.command_line_processor import (
+        apply_arguments_to_config,
+        parse_arguments,
+    )
+    from conventional_semver.configuration import Configuration
+
+    config = Configuration()
+    ns = parse_arguments(['--changelog', '/out/changelog.md'])
+    apply_arguments_to_config(ns, config)
+    assert config.changelog_output_file == '/out/changelog.md', f"(expected='/out/changelog.md', actual={config.changelog_output_file!r})"
+
+
+@fact
+def apply_maps_commit_url_with_trailing_slash_stripped() -> None:
+    from conventional_semver.command_line_processor import (
+        apply_arguments_to_config,
+        parse_arguments,
+    )
+    from conventional_semver.configuration import Configuration
+
+    config = Configuration()
+    ns = parse_arguments(['--commit-url', 'https://example.com/commits/'])
+    apply_arguments_to_config(ns, config)
+    assert config.commit_url == 'https://example.com/commits', f"(expected='https://example.com/commits', actual={config.commit_url!r})"
+
+
+@fact
+def apply_maps_changelog_template_onto_config() -> None:
+    from conventional_semver.command_line_processor import (
+        apply_arguments_to_config,
+        parse_arguments,
+    )
+    from conventional_semver.configuration import Configuration
+
+    config = Configuration()
+    ns = parse_arguments(['--changelog-template', '/custom/template.j2'])
+    apply_arguments_to_config(ns, config)
+    assert config.changelog_template == '/custom/template.j2', f"(expected='/custom/template.j2', actual={config.changelog_template!r})"
+
+
+@fact
+def trust_repo_templates_flag_defaults_to_false() -> None:
+    from conventional_semver.command_line_processor import parse_arguments
+
+    ns = parse_arguments([])
+    assert ns.trust_repo_templates is False, f"(expected=False, actual={ns.trust_repo_templates!r})"
+
+
+@fact
+def apply_maps_trust_repo_templates_onto_config() -> None:
+    from conventional_semver.command_line_processor import (
+        apply_arguments_to_config,
+        parse_arguments,
+    )
+    from conventional_semver.configuration import Configuration
+
+    config = Configuration()
+    ns = parse_arguments(['--changelog-template', '/custom/template.j2', '--trust-repo-templates'])
+    apply_arguments_to_config(ns, config)
+    assert config.trust_repo_templates is True, f"(expected=True, actual={config.trust_repo_templates!r})"
+
+
+@fact
+def trust_ugc_flag_defaults_to_false() -> None:
+    from conventional_semver.command_line_processor import parse_arguments
+
+    ns = parse_arguments([])
+    assert ns.trust_ugc is False, f"(expected=False, actual={ns.trust_ugc!r})"
+
+
+@fact
+def apply_maps_trust_ugc_onto_config() -> None:
+    from conventional_semver.command_line_processor import (
+        apply_arguments_to_config,
+        parse_arguments,
+    )
+    from conventional_semver.configuration import Configuration
+
+    config = Configuration()
+    ns = parse_arguments(['--trust-ugc'])
+    apply_arguments_to_config(ns, config)
+    assert config.trust_ugc is True, f"(expected=True, actual={config.trust_ugc!r})"
+
+
+@fact
+def apply_maps_commit_onto_config() -> None:
+    from conventional_semver.command_line_processor import (
+        apply_arguments_to_config,
+        parse_arguments,
+    )
+    from conventional_semver.configuration import Configuration
+
+    config = Configuration()
+    ns = parse_arguments(['--commit', 'abc123'])
+    apply_arguments_to_config(ns, config)
+    assert config.start_commit_hash == 'abc123', f"(expected='abc123', actual={config.start_commit_hash!r})"
+
+
+@fact
+def apply_maps_tag_onto_config() -> None:
+    from conventional_semver.command_line_processor import (
+        apply_arguments_to_config,
+        parse_arguments,
+    )
+    from conventional_semver.configuration import Configuration
+
+    config = Configuration()
+    ns = parse_arguments(['--tag', 'v1.0.0'])
+    apply_arguments_to_config(ns, config)
+    assert config.start_tag == 'v1.0.0', f"(expected='v1.0.0', actual={config.start_tag!r})"
+
+
+@fact
+def apply_maps_semver_components_onto_config() -> None:
+    from conventional_semver.command_line_processor import (
+        apply_arguments_to_config,
+        parse_arguments,
+    )
+    from conventional_semver.configuration import Configuration
+
+    config = Configuration()
+    ns = parse_arguments(['--major', '1', '--minor', '2', '--patch', '3'])
+    apply_arguments_to_config(ns, config)
+    assert config.major_start == 1, f"(expected=1, actual={config.major_start!r})"
+    assert config.minor_start == 2, f"(expected=2, actual={config.minor_start!r})"
+    assert config.patch_start == 3, f"(expected=3, actual={config.patch_start!r})"
+
+
+@fact
+def legacy_commandlineprocessor_class_still_works() -> None:
+    from conventional_semver.command_line_processor import (
+        CommandlineProcessor,
+        apply_arguments_to_config,
+        parse_arguments,
+    )
+    from conventional_semver.configuration import Configuration
+
+    config = Configuration()
+    processor = CommandlineProcessor(config, '1.0.0', 'abc')
+    processor.process_command_line(['--changelog', '/legacy.md'])
+
+    ns = parse_arguments(['--changelog', '/direct.md'])
+    apply_arguments_to_config(ns, config)
+    assert config.changelog_output_file == '/direct.md', f"(expected='/direct.md', actual={config.changelog_output_file!r})"
+
+
+def _expect_system_exit(fn: Callable[[], object]) -> None:
+    """Helper to assert that *fn* raises SystemExit."""
+    try:
+        fn()
+    except SystemExit:
+        return
+    raise AssertionError('expected SystemExit but nothing was raised')
+
+
+@fact
+def invalid_major_int_raises_system_exit() -> None:
+    from conventional_semver.command_line_processor import parse_arguments
+
+    _expect_system_exit(lambda: parse_arguments(['--major', 'abc']))
+
+
+@fact
+def invalid_minor_int_raises_system_exit() -> None:
+    from conventional_semver.command_line_processor import parse_arguments
+
+    _expect_system_exit(lambda: parse_arguments(['--minor', 'xyz']))
+
+
+@fact
+def invalid_patch_int_raises_system_exit() -> None:
+    from conventional_semver.command_line_processor import parse_arguments
+
+    _expect_system_exit(lambda: parse_arguments(['--patch', '!!']))
+
+
+@fact
+def unknown_flag_raises_system_exit() -> None:
+    from conventional_semver.command_line_processor import parse_arguments
+
+    _expect_system_exit(lambda: parse_arguments(['--nonexistent-flag']))
+
+
+@fact
+def changelog_with_dash_prefixed_value_defaults_to_changelog_md() -> None:
+    # When --changelog is followed by a dash-prefixed arg, argparse treats
+    # it as a new flag; nargs='?' falls back to const.
+    from conventional_semver.command_line_processor import parse_arguments
+
+    ns = parse_arguments(['--changelog', '--verbose'])
+    assert ns.changelog == 'CHANGELOG.md', f"(expected='CHANGELOG.md', actual={ns.changelog!r})"
+
+
+@fact
+def verbose_flag_is_stored_true() -> None:
+    from conventional_semver.command_line_processor import parse_arguments
+
+    ns = parse_arguments(['--verbose'])
+    assert ns.verbose is True, f"(expected=True, actual={ns.verbose!r})"
+
+
+@fact
+def verbose_flag_not_passed_means_false() -> None:
+    from conventional_semver.command_line_processor import parse_arguments
+
+    ns = parse_arguments([])
+    assert ns.verbose is False, f"(expected=False, actual={ns.verbose!r})"
+
+
+@fact
+def parse_arguments_does_not_auto_strip_args() -> None:
+    """parse_arguments forwards all args as-is — callers are responsible for stripping argv[0]."""
+    from conventional_semver.command_line_processor import parse_arguments
+
+    ns = parse_arguments(['/some/fake/script/path', '--no-semver'])
+    # repo_path is set to whatever parse_arguments sees — no auto-detection here.
+    assert ns.repo_path == '/some/fake/script/path', f"(expected='/some/fake/script/path', actual={ns.repo_path!r})"
+
+
+@fact
+def legacy_class_strips_argv0_explicitly() -> None:
+    """CommandlineProcessor explicitly strips argv[0] before calling parse_arguments."""
+    from conventional_semver.command_line_processor import CommandlineProcessor
+    from conventional_semver.configuration import Configuration
+
+    config = Configuration()
+    processor = CommandlineProcessor(config, '1.0.0', 'abc')
+
+    # Passing sys.argv[0] as first element should NOT pollute repo_path or git_path
+    processor.process_command_line(['/fake/script/path'])
+
+    # The key check: git_path must remain '' so process_configuration falls back to 'git'.
+    assert config.git_path == '', f'Expected empty git_path but got {config.git_path!r}'
+
+
+@fact
+def main_default_argv_does_not_pollute_repo_path() -> None:
+    """When __main__.py's main() defaults to sys.argv[1:], the legacy class strips argv[0]."""
+    # The default is sys.argv[1:] at function definition, so production never sees this risk.
+    from conventional_semver.command_line_processor import CommandlineProcessor
+    from conventional_semver.configuration import Configuration
+
+    config = Configuration()
+    processor = CommandlineProcessor(config, '1.0.0', 'abc')
+    processor.process_command_line(['/some/fake/__main__.py'])
+
+    assert config.repo_path == '', f'Expected empty repo_path but got {config.repo_path!r}'
+    assert config.git_path == '', f'Expected empty git_path but got {config.git_path!r}'
+
+
+@fact
+def legacy_class_single_flag_passes_through() -> None:
+    """A single-element argv that is a flag (not a path) passes through to argparse."""
+    from conventional_semver.command_line_processor import CommandlineProcessor
+    from conventional_semver.configuration import Configuration
+
+    config = Configuration()
+    processor = CommandlineProcessor(config, '1.0.0', 'abc')
+    processor.process_command_line(['--no-semver'])
+
+    assert config.disable_semver_output is True, f"(expected=True, actual={config.disable_semver_output!r})"
+
+
+@fact
+def legacy_class_empty_argv_leaves_config_untouched() -> None:
+    """An empty argv list yields no arguments and leaves the config at defaults."""
+    from conventional_semver.command_line_processor import CommandlineProcessor
+    from conventional_semver.configuration import Configuration
+
+    config = Configuration()
+    processor = CommandlineProcessor(config, '1.0.0', 'abc')
+    processor.process_command_line([])
+
+    assert config.repo_path == '', f"(expected='', actual={config.repo_path!r})"
+    assert config.changelog_output_file == '', f"(expected='', actual={config.changelog_output_file!r})"
+    assert config.disable_semver_output is False, f"(expected=False, actual={config.disable_semver_output!r})"
+
+
+@fact
+def parse_arguments_forwards_single_element_path() -> None:
+    """parse_arguments preserves single-element lists — the caller handles stripping."""
+    from conventional_semver.command_line_processor import parse_arguments
+
+    ns = parse_arguments(['/path/to/repo'])
+    assert ns.repo_path == '/path/to/repo', f"(expected='/path/to/repo', actual={ns.repo_path!r})"
+
+
+@fact
+def parse_arguments_preserves_flags_without_argv0() -> None:
+    """parse_arguments preserves flags when passed directly (no argv[0] to strip)."""
+    from conventional_semver.command_line_processor import parse_arguments
+
+    ns = parse_arguments(['--changelog', '/custom/changelog.md'])
+    assert ns.changelog == '/custom/changelog.md', f"(expected='/custom/changelog.md', actual={ns.changelog!r})"
+
+
+# -- help/version flags are tested implicitly by all other tests
+# that successfully invoke parse_arguments() (a broken parser would crash).
+# -- From version flag tests
+
+
+@fact
+def from_version_flag_parses_valid_semver() -> None:
+    """parse_arguments correctly extracts the --from value."""
+    from conventional_semver.command_line_processor import parse_arguments
+
+    ns = parse_arguments(['--from', '1.4.0'])
+    assert ns.from_version == '1.4.0', f"(expected='1.4.0', actual={ns.from_version!r})"
+
+
+@fact
+def from_version_applied_to_config() -> None:
+    """--from sets major_start, minor_start, and patch_start on config."""
+    from conventional_semver.command_line_processor import (
+        apply_arguments_to_config,
+        parse_arguments,
+    )
+    from conventional_semver.configuration import Configuration
+
+    config = Configuration()
+    ns = parse_arguments(['--from', '2.3.4'])
+    apply_arguments_to_config(ns, config)
+    assert config.from_version == '2.3.4', f"(expected='2.3.4', actual={config.from_version!r})"
+    assert config.major_start == 2, f"(expected=2, actual={config.major_start!r})"
+    assert config.minor_start == 3, f"(expected=3, actual={config.minor_start!r})"
+    assert config.patch_start == 4, f"(expected=4, actual={config.patch_start!r})"
+
+
+@fact
+def from_version_takes_precedence_over_major_minor_patch() -> None:
+    """When --from and --major/--minor/--patch are both given, --from wins."""
+    from conventional_semver.command_line_processor import (
+        apply_arguments_to_config,
+        parse_arguments,
+    )
+    from conventional_semver.configuration import Configuration
+
+    config = Configuration()
+    # --from 1.2.3 and --major 9 --minor 9 --patch 9
+    ns = parse_arguments(['--from', '1.2.3', '--major', '9', '--minor', '9', '--patch', '9'])
+    apply_arguments_to_config(ns, config)
+    # --from takes precedence
+    assert config.major_start == 1, f"(expected=1, actual={config.major_start!r})"
+    assert config.minor_start == 2, f"(expected=2, actual={config.minor_start!r})"
+    assert config.patch_start == 3, f"(expected=3, actual={config.patch_start!r})"
+
+
+@fact
+def invalid_from_version_produces_error() -> None:
+    """An invalid --from value raises SystemExit with a clear message."""
+    from conventional_semver.command_line_processor import (
+        apply_arguments_to_config,
+        parse_arguments,
+    )
+    from conventional_semver.configuration import Configuration
+
+    ns = parse_arguments(['--from', 'invalid'])
+    config = Configuration()
+    try:
+        apply_arguments_to_config(ns, config)
+    except SystemExit as exc:
+        assert 'Invalid semver baseline' in str(exc), f"(expected 'Invalid semver baseline' in, actual={str(exc)!r})"
+    else:
+        raise AssertionError('expected SystemExit')
+
+
+@fact
+def from_version_too_few_parts_error() -> None:
+    """--from with only two parts produces a validation error."""
+    from conventional_semver.command_line_processor import (
+        apply_arguments_to_config,
+        parse_arguments,
+    )
+    from conventional_semver.configuration import Configuration
+
+    ns = parse_arguments(['--from', '1.4'])
+    config = Configuration()
+    try:
+        apply_arguments_to_config(ns, config)
+    except SystemExit:
+        pass
+    else:
+        raise AssertionError('expected SystemExit')
+
+
+@fact
+def from_version_zero_values() -> None:
+    """Zero-valued semver baseline is accepted."""
+    from conventional_semver.command_line_processor import (
+        apply_arguments_to_config,
+        parse_arguments,
+    )
+    from conventional_semver.configuration import Configuration
+
+    config = Configuration()
+    ns = parse_arguments(['--from', '0.0.0'])
+    apply_arguments_to_config(ns, config)
+    assert config.major_start == 0, f"(expected=0, actual={config.major_start!r})"
+    assert config.minor_start == 0, f"(expected=0, actual={config.minor_start!r})"
+    assert config.patch_start == 0, f"(expected=0, actual={config.patch_start!r})"
+
+
+@fact
+def whitespace_in_from_version_stripped() -> None:
+    """Whitespace around the version string is trimmed before parsing."""
+    from conventional_semver.command_line_processor import (
+        apply_arguments_to_config,
+        parse_arguments,
+    )
+    from conventional_semver.configuration import Configuration
+
+    config = Configuration()
+    ns = parse_arguments(['--from', '  1.0.0  '])
+    apply_arguments_to_config(ns, config)
+    assert config.major_start == 1, f"(expected=1, actual={config.major_start!r})"
+    assert config.minor_start == 0, f"(expected=0, actual={config.minor_start!r})"
+    assert config.patch_start == 0, f"(expected=0, actual={config.patch_start!r})"
+
+
+@fact
+def from_version_none_means_default_separate_flags_used() -> None:
+    """When --from is absent, separate --major/--minor/--patch are applied."""
+    from conventional_semver.command_line_processor import (
+        apply_arguments_to_config,
+        parse_arguments,
+    )
+    from conventional_semver.configuration import Configuration
+
+    config = Configuration()
+    ns = parse_arguments(['--major', '3', '--minor', '2', '--patch', '1'])
+    apply_arguments_to_config(ns, config)
+    assert config.from_version is None, f"(expected=None, actual={config.from_version!r})"
+    assert config.major_start == 3, f"(expected=3, actual={config.major_start!r})"
+    assert config.minor_start == 2, f"(expected=2, actual={config.minor_start!r})"
+    assert config.patch_start == 1, f"(expected=1, actual={config.patch_start!r})"
+
+
+# -- git_path validation tests
+
+
+@fact
+def validate_git_path_empty_is_ok() -> None:
+    """An empty git_path is skipped — means 'use PATH'."""
+    from conventional_semver.configuration import Configuration
+
+    Configuration.validate_git_path('')
+
+
+@fact
+def validate_git_path_valid_executable_succeeds() -> None:
+    """A real executable path passes validation."""
+    import shutil
+
+    from conventional_semver.configuration import Configuration
+
+    git = shutil.which('git')
+    assert git is not None, 'git must be on PATH for this test'
+    Configuration.validate_git_path(git)
+
+
+@fact
+def validate_git_path_nonexistent_raises() -> None:
+    """A non-existent git path raises a clear ValueError."""
+    from conventional_semver.configuration import Configuration
+
+    try:
+        Configuration.validate_git_path('/no/such/git')
+    except ValueError as exc:
+        assert 'does not exist' in str(exc), f"(expected 'does not exist' in, actual={str(exc)!r})"
+    else:
+        raise AssertionError('expected ValueError')
+
+
+@fact
+def validate_git_path_non_executable_raises() -> None:
+    """A file that exists but is not executable raises a clear error."""
+    import tempfile
+    import os
+
+    from conventional_semver.configuration import Configuration
+
+    with tempfile.NamedTemporaryFile(delete=False) as fh:
+        fh.write(b'not executable')
+        tmp_path = fh.name
+
+    try:
+        os.chmod(tmp_path, 0o444)
+        try:
+            Configuration.validate_git_path(tmp_path)
+        except ValueError as exc:
+            assert 'not executable' in str(exc), f"(expected 'not executable' in, actual={str(exc)!r})"
+        else:
+            raise AssertionError('expected ValueError')
+    finally:
+        os.chmod(tmp_path, 0o644)
+        os.unlink(tmp_path)
+
+
+@fact
+def apply_maps_config_file_onto_config() -> None:
+    from conventional_semver.command_line_processor import (
+        apply_arguments_to_config,
+        parse_arguments,
+    )
+    from conventional_semver.configuration import Configuration
+
+    config = Configuration()
+    ns = parse_arguments(['--config', '/my/custom.conf'])
+    apply_arguments_to_config(ns, config)
+    assert config.config_file == '/my/custom.conf', f"(expected='/my/custom.conf', actual={config.config_file!r})"
+
+
+@fact
+def git_path_flag_is_mapped_to_config() -> None:
+    """The --git-path CLI flag maps onto config.git_path."""
+    from conventional_semver.command_line_processor import (
+        apply_arguments_to_config,
+        parse_arguments,
+    )
+    from conventional_semver.configuration import Configuration
+
+    config = Configuration()
+    ns = parse_arguments(['--git-path', '/custom/git'])
+    apply_arguments_to_config(ns, config)
+    assert config.git_path == '/custom/git', f"(expected='/custom/git', actual={config.git_path!r})"
+
+
+@fact
+def git_path_omitted_means_empty() -> None:
+    """When --git-path is not passed, config.git_path stays empty."""
+    from conventional_semver.command_line_processor import (
+        apply_arguments_to_config,
+        parse_arguments,
+    )
+    from conventional_semver.configuration import Configuration
+
+    config = Configuration()
+    ns = parse_arguments([])
+    apply_arguments_to_config(ns, config)
+    assert config.git_path == '', f"(expected='', actual={config.git_path!r})"
+
+
+@fact
+def process_configuration_validates_git_path() -> None:
+    """process_configuration() validates an explicit git_path."""
+    from conventional_semver.configuration import Configuration
+
+    config = Configuration()
+    config.git_path = '/no/such/git'
+    try:
+        config.process_configuration()
+    except ValueError as exc:
+        assert 'does not exist' in str(exc)
+    else:
+        raise AssertionError('expected ValueError')

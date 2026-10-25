@@ -6,6 +6,9 @@ set -eo pipefail
 if [ -z "$VIRTUAL_ENV" ]; then
     source .venv/bin/activate
 fi
+if [ -z "$SEMVER" ]; then
+    export SEMVER=$(conventional-semver)
+fi
 sed "s/0.0.0/$SEMVER/g" --in-place pyproject.toml
 sed "s/0.0.0/$SEMVER/g" --in-place docs/conf.py
 sed "s/0.0.0/$SEMVER/g" --in-place src/conventional_semver/__init__.py
@@ -14,4 +17,4 @@ rm -rf build/
 rm -rf dist/
 rm -rf src/*.egg-info/
 cp SKILL.md src/conventional_semver/
-python3 -m build
+uv build

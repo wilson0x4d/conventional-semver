@@ -17,23 +17,22 @@ Usage
     generator = SemverOutputGenerator(config)
 """
 
-from .Changelog import Changelog
-from .ChangelogOutputGenerator import ChangelogOutputGenerator
-from .CommandLineProcessor import CommandlineProcessor
-from .Configuration import Configuration
-from .GitAdapter import GitAdapter
-from .GitEntry import GitEntry
-from .GitEntryParser import GitEntryParser
-from .GitLogStream import GitLogStream
-from .OutputGenerator import OutputGenerator
-from .SemverOutputGenerator import SemverOutputGenerator
-from .SemverComponentType import SemverComponentType
-from .Validator import Validator
+from .changelog import Changelog
+from .changelog_output_generator import ChangelogOutputGenerator
+from .command_line_processor import CommandlineProcessor
+from .configuration import Configuration
+from .git_adapter import GitAdapter
+from .git_entry import GitEntry
+from .git_entry_parser import GitEntryParser
+from .git_log_stream import GitLogStream
+from .output_generator import OutputGenerator
+from .semver_component_type import SemverComponentType
+from .semver_output_generator import SemverOutputGenerator
+from .validator import Validator
 
 __version__ = '0.0.0'
 __commit__ = '0abc123'
 __all__ = [
-    '__version__', '__commit__',
     'Changelog',
     'ChangelogOutputGenerator',
     'CommandlineProcessor',
@@ -43,7 +42,9 @@ __all__ = [
     'GitEntryParser',
     'GitLogStream',
     'OutputGenerator',
-    'SemverOutputGenerator',
     'SemverComponentType',
+    'SemverOutputGenerator',
     'Validator',
+    '__commit__',
+    '__version__',
 ]

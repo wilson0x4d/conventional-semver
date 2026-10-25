@@ -1,23 +1,21 @@
-# SPDX-FileCopyrightText: (c) 2026 Shaun Wilson
+# SPDX-FileCopyrightText: © 2026 Shaun Wilson
 # SPDX-License-Identifier: MIT
 
-"""Tests for the :class:`~conventional_semver.Validator` class."""
-
-import re
-
-from punit import fact
+"""Tests for the :class:`~conventional_semver.validator` class."""
 
 from conventional_semver import Validator
-from conventional_semver.Configuration import Configuration
-from conventional_semver.GitEntry import GitEntry
-from conventional_semver.SemverComponentType import SemverComponentType
+from conventional_semver.configuration import Configuration
+from conventional_semver.git_entry import GitEntry
+from conventional_semver.semver_component_type import SemverComponentType
+from punit import fact, trait
+import re
 
 
 def _make_restricted_config() -> Configuration:
     """Create a configuration with a restricted set of types for testing.
 
     Only feat, fix, docs, and chore are valid, matching the format that
-    :class:`~conventional_semver.Configuration` produces with its
+    :class:`~conventional_semver.configuration` produces with its
     ``__build_type_regex`` helper (type + colon + rest of subject).
     """
     config = Configuration()
@@ -43,7 +41,7 @@ def valid_conventional_commit_passes() -> None:
 
     error = v.validate_message('feat(cli): add help')
 
-    assert error is None
+    assert error is None, f"(expected=None, actual={error!r})"
 
 
 @fact
@@ -53,7 +51,7 @@ def valid_simple_commit_passes() -> None:
 
     error = v.validate_message('fix: resolve crash')
 
-    assert error is None
+    assert error is None, f"(expected=None, actual={error!r})"
 
 
 @fact
@@ -63,7 +61,7 @@ def valid_scopeless_commit_passes() -> None:
 
     error = v.validate_message('docs: update readme')
 
-    assert error is None
+    assert error is None, f"(expected=None, actual={error!r})"
 
 
 @fact
@@ -73,7 +71,7 @@ def valid_chore_commit_passes() -> None:
 
     error = v.validate_message('chore: update deps')
 
-    assert error is None
+    assert error is None, f"(expected=None, actual={error!r})"
 
 
 @fact
@@ -86,9 +84,24 @@ def breaking_change_footer_validates_message() -> None:
         subject='feat(api): new endpoint',
         footers=['BREAKING-CHANGE: API is now versioned'],
     )
-    error = v._entry_has_unrecognized_type(entry, entry.subject)
+    errors = v.validate_log([entry])
 
-    assert error is None
+    assert errors == [], f"(expected=[], actual={errors!r})"
+
+
+@fact
+def footer_match_rescues_unrecognized_type() -> None:
+    """An entry whose type matches nothing is still valid when a footer matches."""
+    config = _make_restricted_config()
+    v = Validator(config)
+
+    entry = GitEntry(
+        subject='xyz: unknown type',
+        footers=['BREAKING-CHANGE: big redesign'],
+    )
+    errors = v.validate_log([entry])
+
+    assert errors == [], f"(expected=[], actual={errors!r})"
 
 
 @fact
@@ -98,9 +111,9 @@ def unrecognized_type_is_rejected() -> None:
 
     error = v.validate_message('xyz: something unknown')
 
-    assert error is not None
-    assert 'Unrecognized commit type' in error
-    assert 'xyz: something unknown' in error
+    assert error is not None, '(expected an error, actual=None)'
+    assert 'Unrecognized commit type' in error, f"(expected 'Unrecognized commit type' in, actual={error!r})"
+    assert 'xyz: something unknown' in error, f"(expected 'xyz: something unknown' in, actual={error!r})"
 
 
 @fact
@@ -110,9 +123,9 @@ def unknown_type_error_contains_type_name() -> None:
 
     error = v.validate_message('refactor: clean up code')
 
-    assert error is not None
-    assert 'refactor' in error
-    assert 'refactor: clean up code' in error
+    assert error is not None, '(expected an error, actual=None)'
+    assert 'refactor' in error, f"(expected 'refactor' in, actual={error!r})"
+    assert 'refactor: clean up code' in error, f"(expected 'refactor: clean up code' in, actual={error!r})"
 
 
 @fact
@@ -122,8 +135,8 @@ def non_conventional_message_is_rejected() -> None:
 
     error = v.validate_message('just a regular commit message')
 
-    assert error is not None
-    assert 'just a regular commit message' in error
+    assert error is not None, '(expected an error, actual=None)'
+    assert 'just a regular commit message' in error, f"(expected message in, actual={error!r})"
 
 
 # -- Case sensitivity --
@@ -137,7 +150,7 @@ def uppercase_type_is_validated_by_ignore_case_pattern() -> None:
 
     error = v.validate_message('FEAT(api): new endpoint')
 
-    assert error is None
+    assert error is None, f"(expected=None, actual={error!r})"
 
 
 @fact
@@ -148,7 +161,7 @@ def mixed_case_type_is_validated_by_ignore_case_pattern() -> None:
 
     error = v.validate_message('Fix: resolve bug')
 
-    assert error is None
+    assert error is None, f"(expected=None, actual={error!r})"
 
 
 # -- validate_log tests --
@@ -166,7 +179,7 @@ def validate_log_all_valid_returns_empty_list() -> None:
 
     errors = v.validate_log(entries)
 
-    assert errors == []
+    assert errors == [], f"(expected=[], actual={errors!r})"
 
 
 @fact
@@ -181,8 +194,8 @@ def validate_log_one_invalid_returns_single_error() -> None:
 
     errors = v.validate_log(entries)
 
-    assert len(errors) == 1
-    assert 'xyz' in errors[0]
+    assert len(errors) == 1, f'(expected=1, actual={len(errors)})'
+    assert 'xyz' in errors[0], f"(expected 'xyz' in, actual={errors[0]!r})"
 
 
 @fact
@@ -197,9 +210,9 @@ def validate_log_all_invalid_returns_all_errors() -> None:
 
     errors = v.validate_log(entries)
 
-    assert len(errors) == 2
-    assert 'xyz' in errors[0]
-    assert 'abc' in errors[1]
+    assert len(errors) == 2, f'(expected=2, actual={len(errors)})'
+    assert 'xyz' in errors[0], f"(expected 'xyz' in, actual={errors[0]!r})"
+    assert 'abc' in errors[1], f"(expected 'abc' in, actual={errors[1]!r})"
 
 
 @fact
@@ -209,7 +222,7 @@ def validate_log_empty_list_returns_empty_list() -> None:
 
     errors = v.validate_log([])
 
-    assert errors == []
+    assert errors == [], f"(expected=[], actual={errors!r})"
 
 
 @fact
@@ -227,9 +240,9 @@ def validate_log_preserves_order_of_errors() -> None:
 
     errors = v.validate_log(entries)
 
-    assert len(errors) == 2
-    assert 'xyz' in errors[0]
-    assert 'abc' in errors[1]
+    assert len(errors) == 2, f'(expected=2, actual={len(errors)})'
+    assert 'xyz' in errors[0], f"(expected 'xyz' in, actual={errors[0]!r})"
+    assert 'abc' in errors[1], f"(expected 'abc' in, actual={errors[1]!r})"
 
 
 # -- Integration: main() entry point --
@@ -242,10 +255,11 @@ def main_validate_invalid_message_returns_exit_code_1() -> None:
 
     exit_code = main(['--validate', 'foo bar'])
 
-    assert exit_code == 1
+    assert exit_code == 1, f'(expected=1, actual={exit_code})'
 
 
 @fact
+@trait('integration')
 def main_validate_valid_message_succeeds_in_git_repo() -> None:
     """In a valid git repo with default config, --validate with a valid
     conventional commit message should pass validation and fall through
@@ -255,55 +269,52 @@ def main_validate_valid_message_succeeds_in_git_repo() -> None:
 
     exit_code = main(['--validate', 'feat: test commit'])
 
-    assert exit_code == 0
+    assert exit_code == 0, f'(expected=0, actual={exit_code})'
 
 
 @fact
 def main_validate_f_flag_absent_gives_real_value() -> None:
     """--validate without value gives True, not a string or False."""
-    from conventional_semver.CommandLineProcessor import (
+    from conventional_semver.command_line_processor import (
         apply_arguments_to_config,
         parse_arguments,
     )
-    from conventional_semver.Configuration import Configuration
 
     config = Configuration()
     ns = parse_arguments(['--validate'])
     apply_arguments_to_config(ns, config)
 
-    assert config.validate_message is True  # type: ignore[comparison-overlap]
+    assert config.validate_message is True, f'(expected=True, actual={config.validate_message!r})'
 
 
 @fact
 def main_validate_flag_with_value_gives_string() -> None:
     """--validate <MESSAGE> gives the message string."""
-    from conventional_semver.CommandLineProcessor import (
+    from conventional_semver.command_line_processor import (
         apply_arguments_to_config,
         parse_arguments,
     )
-    from conventional_semver.Configuration import Configuration
 
     config = Configuration()
     ns = parse_arguments(['--validate', 'feat(cli): test'])
     apply_arguments_to_config(ns, config)
 
-    assert config.validate_message == 'feat(cli): test'
+    assert config.validate_message == 'feat(cli): test', f"(expected='feat(cli): test', actual={config.validate_message!r})"
 
 
 @fact
 def main_validate_flag_missing_is_false() -> None:
     """When --validate is absent, config.validate_message is False."""
-    from conventional_semver.CommandLineProcessor import (
+    from conventional_semver.command_line_processor import (
         apply_arguments_to_config,
         parse_arguments,
     )
-    from conventional_semver.Configuration import Configuration
 
     config = Configuration()
     ns = parse_arguments([])
     apply_arguments_to_config(ns, config)
 
-    assert config.validate_message is False
+    assert config.validate_message is False, f'(expected=False, actual={config.validate_message!r})'
 
 
 # -- Integration tests --
@@ -313,7 +324,7 @@ def main_validate_flag_missing_is_false() -> None:
 def validator_is_exported_from_package() -> None:
     from conventional_semver import Validator as TopLevelValidator
 
-    assert TopLevelValidator is Validator
+    assert TopLevelValidator is Validator, f'(expected {Validator!r}, actual {TopLevelValidator!r})'
 
 
 @fact
@@ -323,59 +334,28 @@ def validator_accepts_configuration_object() -> None:
     config.footers = []
     v = Validator(config)
 
-    assert isinstance(v, Validator)
+    assert isinstance(v, Validator), f'(expected Validator, actual {type(v)!r})'
 
 
 @fact
 def configuration_validate_message_defaults_to_false() -> None:
     config = Configuration()
 
-    assert config.validate_message is False
+    assert config.validate_message is False, f'(expected=False, actual={config.validate_message!r})'
 
 
 @fact
 def configuration_validate_message_accepts_string() -> None:
-    from conventional_semver.CommandLineProcessor import (
+    from conventional_semver.command_line_processor import (
         apply_arguments_to_config,
         parse_arguments,
     )
-    from conventional_semver.Configuration import Configuration
 
     config = Configuration()
     ns = parse_arguments(['--validate', 'feat: new thing'])
     apply_arguments_to_config(ns, config)
 
-    assert config.validate_message == 'feat: new thing'
-
-
-@fact
-def configuration_validate_message_set_true_when_flag_absent_value() -> None:
-    from conventional_semver.CommandLineProcessor import (
-        apply_arguments_to_config,
-        parse_arguments,
-    )
-    from conventional_semver.Configuration import Configuration
-
-    config = Configuration()
-    ns = parse_arguments(['--validate'])
-    apply_arguments_to_config(ns, config)
-
-    assert config.validate_message is True  # type: ignore[comparison-overlap]
-
-
-@fact
-def configuration_validate_message_defaults_false_when_flag_not_passed() -> None:
-    from conventional_semver.CommandLineProcessor import (
-        apply_arguments_to_config,
-        parse_arguments,
-    )
-    from conventional_semver.Configuration import Configuration
-
-    config = Configuration()
-    ns = parse_arguments([])
-    apply_arguments_to_config(ns, config)
-
-    assert config.validate_message is False
+    assert config.validate_message == 'feat: new thing', f"(expected='feat: new thing', actual={config.validate_message!r})"
 
 
 # -- Non-conventional commit error messages --
@@ -388,9 +368,9 @@ def error_message_for_non_conventional_commit() -> None:
 
     error = v.validate_message('Merge branch feature into main')
 
-    assert error is not None
-    assert 'Unrecognized commit message' in error
-    assert 'Merge branch feature into main' in error
+    assert error is not None, '(expected an error, actual=None)'
+    assert 'Unrecognized commit message' in error, f"(expected 'Unrecognized commit message' in, actual={error!r})"
+    assert 'Merge branch feature into main' in error, f"(expected message in, actual={error!r})"
 
 
 @fact
@@ -400,5 +380,5 @@ def error_message_for_unknown_type_includes_type() -> None:
 
     error = v.validate_message('build: update webpack config')
 
-    assert error is not None
-    assert 'build' in error
+    assert error is not None, '(expected an error, actual=None)'
+    assert 'build' in error, f"(expected 'build' in, actual={error!r})"

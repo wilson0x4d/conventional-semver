@@ -8,14 +8,24 @@ Processes each commit entry to determine the appropriate major, minor, or patch 
 
 from __future__ import annotations
 
-from .Configuration import Configuration
-from .GitEntry import GitEntry
-from .OutputGenerator import OutputGenerator
-from .SemverComponentType import SemverComponentType
+from .configuration import Configuration
+from .git_entry import GitEntry
+from .output_generator import OutputGenerator
+from .semver_component_type import SemverComponentType
 
 
 class SemverOutputGenerator(OutputGenerator):
-    """Track semver change levels and print the final version to STDOUT."""
+    """Track semver change levels and print the final version to STDOUT.
+
+    Increments the major, minor, or patch component as entries arrive (resetting lower components per semver rules), starting from the baseline in the configuration.
+
+    Usage
+    -----
+
+    .. code-block:: python
+        generator = SemverOutputGenerator(config)
+        generator.generate_output()
+    """
 
     __config: Configuration
     __major: int
@@ -37,7 +47,7 @@ class SemverOutputGenerator(OutputGenerator):
 
         Inspects the entry's ``semver_change`` and increments the appropriate major/minor/patch counter (resetting lower components per semver rules).  Skips empty entries.
 
-        :param entry: A :class:`~conventional_semver.GitEntry` with a populated ``semver_change`` attribute.
+        :param entry: A :class:`~conventional_semver.git_entry` with a populated ``semver_change`` attribute.
         """
         if entry.is_empty():
             return
